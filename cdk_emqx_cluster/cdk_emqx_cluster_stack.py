@@ -343,7 +343,7 @@ EOF
                                          "echo ETCD_NAME=infra%d >> /etc/default/etcd" % n,
                                          'echo ETCD_INITIAL_CLUSTER_STATE=new >> /etc/default/etcd',
                                          'echo ETCD_INITIAL_CLUSTER_TOKEN=emqx-cluster-1 >> /etc/default/etcd',
-                                         'echo ETCD_INITIAL_CLUSTER="infra0=http://etcd0.${EMQX_CLUSTER_DOMAIN}:2380,infra1=http://etcd1.${EMQX_CLUSTER_DOMAIN}:2380,infra2=http://etcd2.${EMQX_CLUSTER_DOMAIN}:2380" >> /etc/default/etcd',
+                                         'echo ETCD_INITIAL_CLUSTER="infra0=http://etcd0${EMQX_CLUSTER_DOMAIN}:2380,infra1=http://etcd1${EMQX_CLUSTER_DOMAIN}:2380,infra2=http://etcd2${EMQX_CLUSTER_DOMAIN}:2380" >> /etc/default/etcd',
                                          'systemctl restart etcd'
             )
             ins = ec2.Instance(self, id = "etsd.%d" % n,
