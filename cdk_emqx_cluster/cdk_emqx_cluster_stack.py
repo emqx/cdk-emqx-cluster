@@ -91,6 +91,7 @@ class CdkEmqxClusterStack(cdk.Stack):
             value=self.nlb.load_balancer_dns_name)
         core.CfnOutput(self, "SSH Entrypoint",
                        value=self.bastion.instance_public_ip)
+        core.CfnOutput(self, "Hosts are", value = '\n'.join(self.hosts))
         core.CfnOutput(self, "SSH Commands for Access",
                        value="ssh -A -l ec2-user %s -L8888:%s:80 -L 9999:%s:80 -L 13000:%s:3000"
                        % (self.bastion.instance_public_ip, self.nlb.load_balancer_dns_name, self.mon_lb, self.mon_lb)
@@ -113,7 +114,7 @@ class CdkEmqxClusterStack(cdk.Stack):
             #!/bin/bash
             ulimit -n 1000000
             ipaddrs=$(ip addr |grep -o '192.*/32' | sed 's#/32##g' | paste -s -d , -)
-            _build/default/bin/emqtt_bench sub -h %s -t "root/%%c/1/+/abc/#" -c 200000 --prefix "prefix%d" --ifaddr "$ipaddrs" -i 5
+            _build/default/bin/emqtt_bench sub -h %s -t "root/%%c/1/+/abc/#" -c 200000 --prefix "prefix%d" --ifaddr $ipaddrs -i 5
 EOF
             """ % (target, n)
             )
@@ -334,14 +335,15 @@ EOF
             # @TODO: fix domain name as following
             cloud_user_data.add_commands('apt update',
                                          'apt install -y etcd-server etcd-client',
-                                         "echo ETCD_INITIAL_ADVERTISE_PEER_URLS=http://etcd%d.int.emqx:2380 >> /etc/default/etcd" % n,
+                                         'export EMQX_CLUSTER_DOMAIN="%s"' % self.domain,
+                                         "echo ETCD_INITIAL_ADVERTISE_PEER_URLS=http://etcd%d${EMQX_CLUSTER_DOMAIN}:2380 >> /etc/default/etcd" % n,
                                          'echo ETCD_LISTEN_PEER_URLS=http://0.0.0.0:2380 >> /etc/default/etcd',
                                          'echo ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379 >> /etc/default/etcd',
-                                         "echo ETCD_ADVERTISE_CLIENT_URLS=http://etcd%d.int.emqx:2379 >> /etc/default/etcd" % n,
+                                         "echo ETCD_ADVERTISE_CLIENT_URLS=http://etcd%d${EMQX_CLUSTER_DOMAIN}:2379 >> /etc/default/etcd" % n,
                                          "echo ETCD_NAME=infra%d >> /etc/default/etcd" % n,
                                          'echo ETCD_INITIAL_CLUSTER_STATE=new >> /etc/default/etcd',
                                          'echo ETCD_INITIAL_CLUSTER_TOKEN=emqx-cluster-1 >> /etc/default/etcd',
-                                         'echo ETCD_INITIAL_CLUSTER="infra0=http://etcd0.int.emqx:2380,infra1=http://etcd1.int.emqx:2380,infra2=http://etcd2.int.emqx:2380" >> /etc/default/etcd',
+                                         'echo ETCD_INITIAL_CLUSTER="infra0=http://etcd0.${EMQX_CLUSTER_DOMAIN}:2380,infra1=http://etcd1.${EMQX_CLUSTER_DOMAIN}:2380,infra2=http://etcd2.${EMQX_CLUSTER_DOMAIN}:2380" >> /etc/default/etcd',
                                          'systemctl restart etcd'
             )
             ins = ec2.Instance(self, id = "etsd.%d" % n,

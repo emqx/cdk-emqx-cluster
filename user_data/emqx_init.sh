@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # ulimt fds
-#
 sudo bash -c 'echo "session required pam_limits.so" >> /etc/pam.d/common-session'
 sudo bash -c 'echo "*      soft    nofile      2000000"  >> /etc/security/limits.conf'
 sudo bash -c 'echo "*      hard    nofile      2000000"  >> /etc/security/limits.conf'
