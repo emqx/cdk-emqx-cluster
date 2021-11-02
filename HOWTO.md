@@ -5,7 +5,7 @@
 git clone git@github.com:qzhuyan/cdk-emqx-cluster.git
 cd cdk-emqx-cluster
 ```
-## Modify the number of nodes and instance size in 
+## Modify the number of nodes and instance size in
 ```
 In cdk_emqx_cluster/cdk_emqx_cluster_stack.py
 
@@ -43,6 +43,8 @@ pip3 install -r requirements.txt
 
 ```
 
+Or you just run `./bin/start.sh`
+
 # Deploy
 ## Dry run create cluster named william
 
@@ -50,7 +52,7 @@ pip3 install -r requirements.txt
 CDK_EMQX_CLUSTERNAME=william cdk synth
 ```
 
-## Real run 
+## Real run
 ```bash
 CDK_EMQX_CLUSTERNAME=william cdk deploy
 ```
@@ -71,7 +73,7 @@ CdkEmqxClusterStack.Loadbalancer = emqx-nlb-william-dd3bcdae49c13be7.elb.eu-west
 CdkEmqxClusterStack.MonitoringGrafana = lb.int.william:3000
 CdkEmqxClusterStack.MonitoringPrometheus = lb.int.william:9090
 CdkEmqxClusterStack.SSHCommandsforAccess = ssh -A -l ec2-user 54.247.190.179 -L8888:emqx-nlb-william-bbbbbbb.elb.eu-west-1.amazonaws.com:80 -L 9999:lb.int.william:80 -L 13000:lb.int.william:3000
-CdkEmqxClusterStack.SSHEntrypoint = 54.247.190.179 
+CdkEmqxClusterStack.SSHEntrypoint = 54.247.190.179
 ```
 It shows you the information of the cluster
 
@@ -85,7 +87,7 @@ It shows you the information of the cluster
   loadgen-0.int.william
 1. loadbalancer dns name:
   emqx-nlb-william-dd3bcdae49c13be7.elb.eu-west-1.amazonaws.com
-  
+
 1. Grafana Monitoring
   lb.int.william:3000
 
@@ -97,11 +99,11 @@ ssh -A -l ec2-user 54.247.190.179 -L8888:emqx-nlb-william-bbbbbbb.elb.eu-west-1.
 
 ## Access the cluster via Bastion
 ```bash
-# ensure ssh-agent is running if not  
+# ensure ssh-agent is running if not
 eval `ssh-agent`
 
 # add ssh key
-ssh-add ~/.ssh/key_for_your_cluster.pem 
+ssh-add ~/.ssh/key_for_your_cluster.pem
 ```
 
 ```bash
@@ -148,7 +150,7 @@ epmd -daemon; ./emqtt_bench conn -h lb.int.william
 
 ```
 
-# Destroy cluster 
+# Destroy cluster
 ```
 CDK_EMQX_CLUSTERNAME=william cdk destroy
 
