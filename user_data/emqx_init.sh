@@ -1,5 +1,7 @@
 #!/bin/bash
 
+domain=$(dnsdomainname)
+
 # ulimt fds
 sudo bash -c 'echo "session required pam_limits.so" >> /etc/pam.d/common-session'
 sudo bash -c 'echo "*      soft    nofile      2000000"  >> /etc/security/limits.conf'
@@ -91,7 +93,7 @@ cluster {
  discovery_strategy = etcd
 
  etcd {
-   server: "http://etcd0.int.emqx:2379"
+   server: "http://etcd0.${domain}:2379"
    ssl.enable: false
  }
 }
@@ -107,7 +109,7 @@ rate_limit {
 }
 
 prometheus {
-    push_gateway_server = "http://lb.int.emqx:9091"
+    push_gateway_server = "http://lb.${domain}:9091"
     interval = "15s"
     enable = true
 }

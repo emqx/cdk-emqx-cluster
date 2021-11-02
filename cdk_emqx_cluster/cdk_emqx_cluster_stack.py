@@ -266,12 +266,19 @@ EOF
         
         for n in range(0, N):
             name = "emqx-%d" % n
+            dnsname = name + self.domain
             rootblockdev = ec2.BlockDevice(device_name = '/dev/xvda', volume = ec2.BlockDeviceVolume.ebs(emqx_ebs_vol_size))
+            userdata_hostname = ec2.UserData.for_linux()
+            userdata_hostname.add_commands("hostname %s" % dnsname)
+            userdata_init = ec2.UserData.custom(user_data)
+            multipartUserData = ec2.MultipartUserData()
+            multipartUserData.add_part(ec2.MultipartBody.from_user_data(userdata_hostname))
+            multipartUserData.add_part(ec2.MultipartBody.from_user_data(userdata_init))
             vm = ec2.Instance(self, id = name,
                               instance_type = ec2.InstanceType(instance_type_identifier=emqx_ins_type),
                               block_devices = [rootblockdev],
                               machine_image = linux_ami,
-                              user_data = ec2.UserData.custom(user_data),
+                              user_data = multipartUserData,
                               security_group = sg,
                               key_name = key,
                               vpc = vpc,
@@ -280,7 +287,7 @@ EOF
 
             self.emqx_vms.append(vm)
 
-            dnsname = name + self.domain
+            
             r53.ARecord(self, id = dnsname,
                         record_name = dnsname,
                         zone = zone,
