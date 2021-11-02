@@ -1,3 +1,6 @@
+# QUICK START
+
+READ [HOWTO.md](HOWTO.md)
 
 # Welcome to your CDK Python project!
 
