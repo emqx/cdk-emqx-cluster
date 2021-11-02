@@ -16,6 +16,7 @@ from aws_cdk import (core as cdk, aws_ec2 as ec2, aws_ecs as ecs,
                      aws_ecs_patterns as ecs_patterns)
 from aws_cdk.core import Duration, CfnParameter
 from base64 import b64encode
+import sys
 
 # from cdk_stack import AWS_ENV
 
@@ -101,6 +102,7 @@ class CdkEmqxClusterStack(cdk.Stack):
         sg = self.sg
         key = self.ssh_key
         target = self.nlb.load_balancer_dns_name
+
         for n in range(0, N):
             name = "loadgen-%d" % n
             bootScript = ec2.UserData.custom(loadgen_user_data)
@@ -137,16 +139,11 @@ EOF
                               router_type = ec2.RouterType.INSTANCE,
                               destination_cidr_block = "192.168.%d.0/24" % n)
                 i+=1
-            dnsname = name + self.domain,
-            # r53.ARecord(self, id = dnsname,
-            #             record_name = dnsname,
-            #             zone = zone,
-            #             #target = r53.RecordTarget([lg_vm.instance_private_ip])
-            # )
-
+            
+            dnsname = "%s%s" % (name, self.domain)
             r53.ARecord(self, 
-                        id = name + self.domain,
-                        record_name = name + self.domain,
+                        id = dnsname,
+                        record_name = dnsname,
                         zone = zone,
                         target = r53.RecordTarget([lg_vm.instance_private_ip])
             )
@@ -164,7 +161,7 @@ EOF
         nlb = self.nlb
         with open("./user_data/prometheus.yml") as f:
             prometheus_config = f.read()
-            prometheus_config = prometheus_config % targets
+            prometheus_config = prometheus_config % ','.join(['"%s:%d"' % (t,9100) for t in targets])
 
         sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(9090), 'prometheus')
         sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(9100), 'prometheus node exporter')
@@ -266,7 +263,6 @@ EOF
         self.emqx_vms = []
 
         
-
         for n in range(0, N):
             name = "emqx-%d" % n
             rootblockdev = ec2.BlockDevice(device_name = '/dev/xvda', volume = ec2.BlockDeviceVolume.ebs(emqx_ebs_vol_size))
@@ -386,9 +382,9 @@ EOF
         self.vpc = vpc
 
     def set_cluster_name(self):
-        self.cluster_name = self.node.try_get_context("name")
+        self.cluster_name = core.Stack.of(self).stack_name
         if not self.cluster_name:
-            self.cluster_name = "emqx"
+            sys.exit("Cannot define cluster_name")
         self.domain = ".int.%s" % self.cluster_name
 
     def setup_r53(self):

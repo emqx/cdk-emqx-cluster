@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import sys
 
 from aws_cdk import core as cdk
 
@@ -13,7 +14,11 @@ from cdk_emqx_cluster.cdk_emqx_cluster_stack import CdkEmqxClusterStack
 
 
 app = core.App()
-CdkEmqxClusterStack(app, "CdkEmqxClusterStack",
+stack_name = os.getenv('CDK_EMQX_CLUSTERNAME')
+if not stack_name:
+    sys.exit("env CDK_EMQX_CLUSTERNAME is not set")
+
+CdkEmqxClusterStack(app, "CdkEmqxClusterStack", stack_name = stack_name
     # If you don't specify 'env', this stack will be environment-agnostic.
     # Account/Region-dependent features and context lookups will not work,
     # but a single synthesized template can be deployed anywhere.
