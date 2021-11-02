@@ -64,7 +64,7 @@ CdkEmqxClusterStack.MonitoringGrafana = lb.int.william:3000
 CdkEmqxClusterStack.MonitoringPrometheus = lb.int.william:9090
 CdkEmqxClusterStack.SSHCommandsforAccess = ssh -A -l ec2-user 54.247.190.179 -L8888:emqx-nlb-william-bbbbbbb.elb.eu-west-1.amazonaws.com:80 -L 9999:lb.int.william:80 -L 13000:lb.int.william:3000
 CdkEmqxClusterStack.SSHEntrypoint = 54.247.190.179 
-
+```
 It shows you the information of the cluster
 
 1. ClusterName: william
@@ -80,8 +80,8 @@ It shows you the information of the cluster
   
 1. Grafana Monitoring
   lb.int.william:3000
-```
-1. Lazy commands for ssh tunnel
+
+1. Lazy command access the cluster with ssh proxy
    where emqx WEBUI is on localhost:8888, grafana dashboard is on localhost:13000
 ```bash
 ssh -A -l ec2-user 54.247.190.179 -L8888:emqx-nlb-william-bbbbbbb.elb.eu-west-1.amazonaws.com:80 -L 9999:lb.int.william:80 -L 13000:lb.int.william:3000
@@ -96,7 +96,7 @@ ssh-add ~/.ssh/key_for_your_cluster.pem
 ```bash
 ssh -A -l ec2-user 54.247.190.179 -L8888:emqx-nlb-william-bbbbbbb.elb.eu-west-1.amazonaws.com:80 -L 9999:lb.int.william:80 -L 13000:lb.int.william:3000
 ```
-## From Bastion you can ssh to the EC2 instances
+## From Bastion you can ssh to the other EC2 instances
 
 ``` bash
 # EMQX
