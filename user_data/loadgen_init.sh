@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-
+domain=$(dnsdomainname)
 echo "session required pam_limits.so" >> /etc/pam.d/common-session
 echo "*      soft    nofile      2000000"  >> /etc/security/limits.conf
 echo "*      hard    nofile      2000000"  >> /etc/security/limits.conf
@@ -50,6 +50,6 @@ systemctl enable node_exporter
 systemctl start node_exporter
 
 cd /root/
-git clone -b "dev/William/quic-0.0.9" https://github.com/qzhuyan/emqtt-bench.git
+git clone -b "master" https://github.com/emqx/emqtt-bench.git
 cd emqtt-bench
 HOME=/root DIAGNOSTIC=1 make
