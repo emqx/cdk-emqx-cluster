@@ -18,6 +18,14 @@ numLg=1
 
 ## Make sure you have AWS credentials in ~/.aws/
 
+## hotpot team, ensure you are using eu-west-1
+``` bash
+(.venv) bash-5.1# cat ~/.aws/config
+[default]
+region = eu-west-1
+output = json
+```
+
 ## Start cdk docker container
 
 ``` bash

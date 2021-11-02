@@ -36,7 +36,6 @@ loadgen_ins_type = 't3a.micro'
 #loadgen_ins_type = 'm5n.xlarge'
 numLg=1
 
-
 ####################
 
 linux_ami = ec2.GenericLinuxImage({
@@ -294,9 +293,6 @@ EOF
                         target = r53.RecordTarget([vm.instance_private_ip])
             )
             self.hosts.append(dnsname)
-
-
-          
 
             # tagging
             if self.user_defined_tags:
