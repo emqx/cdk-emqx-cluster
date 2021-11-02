@@ -97,6 +97,9 @@ ssh -A -l ec2-user 54.247.190.179 -L8888:emqx-nlb-william-bbbbbbb.elb.eu-west-1.
 
 ## Access the cluster via Bastion
 ```bash
+# ensure ssh-agent is running if not  
+eval `ssh-agent`
+
 # add ssh key
 ssh-add ~/.ssh/key_for_your_cluster.pem 
 ```
@@ -108,11 +111,11 @@ ssh -A -l ec2-user 54.247.190.179 -L8888:emqx-nlb-william-bbbbbbb.elb.eu-west-1.
 
 ``` bash
 # EMQX
-ssh -l emqx-0.int.william
+ssh -l ubuntu emqx-0.int.william
 # LOADGEN
-ssh -l loadgen-0.int.william
+ssh -l ubuntu loadgen-0.int.william
 # ETCD
-ssh -l etcd0.int.william
+ssh -l ubuntu etcd0.int.william
 ```
 
 # Provision Grafana Dashboards
