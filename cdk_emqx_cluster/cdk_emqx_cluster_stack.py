@@ -23,18 +23,18 @@ import sys
 ####################
 # Glboal Vars     #
 #
-#emqx_ins_type = 't3a.small'
-emqx_ins_type = 'm5.2xlarge'
+emqx_ins_type = 't3a.small'
+#emqx_ins_type = 'm5.2xlarge'
 # memory optimized
 #emqx_ins_type = 'r5a.2xlarge'
-numEmqx=5
+numEmqx=2
 # extra vol for emqx data dir
-emqx_ebs_vol_size=20
+emqx_ebs_vol_size=8
 # test
-#loadgen_ins_type = 't3a.micro'
+loadgen_ins_type = 't3a.micro'
 # Prod
-loadgen_ins_type = 'm5n.xlarge'
-numLg=2
+#loadgen_ins_type = 'm5n.xlarge'
+numLg=1
 
 
 ####################
@@ -438,11 +438,11 @@ EOF
         Setup network load balancer
         """
         self.loadbalancer_dnsname='lb' + self.domain
-        nlb = elb.NetworkLoadBalancer(self, "emq-elb",
+        nlb = elb.NetworkLoadBalancer(self, "emqx-elb",
                                       vpc = self.vpc,
                                       internet_facing = False, 
                                       cross_zone_enabled = True,
-                                      load_balancer_name="emq-nlb %s" % self.cluster_name)
+                                      load_balancer_name="emqx-nlb-%s" % self.cluster_name)
         r53.ARecord(self, "AliasRecord",
                     zone = self.int_zone,
                     record_name = self.loadbalancer_dnsname,
