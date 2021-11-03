@@ -17,26 +17,7 @@ from aws_cdk import (core as cdk, aws_ec2 as ec2, aws_ecs as ecs,
 from aws_cdk.core import Duration, CfnParameter
 from base64 import b64encode
 import sys
-
-# from cdk_stack import AWS_ENV
-
-####################
-# Glboal Vars     #
-#
-emqx_ins_type = 't3a.small'
-#emqx_ins_type = 'm5.2xlarge'
-# memory optimized
-#emqx_ins_type = 'r5a.2xlarge'
-numEmqx=2
-# extra vol for emqx data dir
-emqx_ebs_vol_size=8
-# test
-loadgen_ins_type = 't3a.micro'
-# Prod
-#loadgen_ins_type = 'm5n.xlarge'
-numLg=1
-
-####################
+import logging
 
 linux_ami = ec2.GenericLinuxImage({
     #"eu-west-1": "ami-06fd78dc2f0b69910", # ubuntu 18.04 latest
@@ -64,8 +45,12 @@ class CdkEmqxClusterStack(cdk.Stack):
         else:
             self.user_defined_tags = None
 
-        self.hosts= []
-        # Prepare infastructure
+        self.hosts = []
+
+        # Read context params
+        self.read_param()
+        
+        # Prepare infrastructure
         self.set_cluster_name()
         self.setup_ssh_key()
         self.setup_vpc()
@@ -77,9 +62,9 @@ class CdkEmqxClusterStack(cdk.Stack):
         self.setup_bastion()
 
         # Create Application Services
-        self.setup_emqx(numEmqx)
+        self.setup_emqx(self.numEmqx)
         self.setup_etcd()
-        self.setup_loadgen(numLg)
+        self.setup_loadgen(self.numLg)
         self.setup_monitoring(self.hosts)
 
         # Outputs
@@ -127,7 +112,7 @@ EOF
             multipartUserData.add_part(ec2.MultipartBody.from_user_data(configIps))
             multipartUserData.add_part(ec2.MultipartBody.from_user_data(runscript))
             lg_vm = ec2.Instance(self, id = name,
-                                 instance_type=ec2.InstanceType(instance_type_identifier=loadgen_ins_type),
+                                 instance_type=ec2.InstanceType(instance_type_identifier=self.loadgen_ins_type),
                                  machine_image=linux_ami,
                                  user_data = multipartUserData,
                                  security_group = sg,
@@ -271,7 +256,10 @@ EOF
         for n in range(0, N):
             name = "emqx-%d" % n
             dnsname = name + self.domain
-            rootblockdev = ec2.BlockDevice(device_name = '/dev/xvda', volume = ec2.BlockDeviceVolume.ebs(emqx_ebs_vol_size))
+            if self.emqx_ebs_vol_size and int(self.emqx_ebs_vol_size) > 0:
+                blockdevs = [ec2.BlockDevice(device_name = '/dev/xvda', volume = ec2.BlockDeviceVolume.ebs(int(self.emqx_ebs_vol_size)))]
+            else:   
+                blockdevs = []
             userdata_hostname = ec2.UserData.for_linux()
             userdata_hostname.add_commands("hostname %s" % dnsname)
             userdata_init = ec2.UserData.custom(emqx_user_data)
@@ -280,8 +268,8 @@ EOF
             multipartUserData.add_part(ec2.MultipartBody.from_user_data(user_data_os_common))    
             multipartUserData.add_part(ec2.MultipartBody.from_user_data(userdata_init))
             vm = ec2.Instance(self, id = name,
-                              instance_type = ec2.InstanceType(instance_type_identifier=emqx_ins_type),
-                              block_devices = [rootblockdev],
+                              instance_type = ec2.InstanceType(instance_type_identifier=self.emqx_ins_type),
+                              block_devices = blockdevs,
                               machine_image = linux_ami,
                               user_data = multipartUserData,
                               security_group = sg,
@@ -460,3 +448,27 @@ EOF
                     target = r53.RecordTarget.from_alias(r53_targets.LoadBalancerTarget(nlb))
                     )
         self.nlb = nlb
+
+    def read_param(self):
+        # EMQX Instance Type
+        # https://aws.amazon.com/ec2/instance-types/
+        # suggested m5.2xlarge
+        self.emqx_ins_type = self.node.try_get_context('emqx_ins_type') or 't3a.small'
+
+        # Number of EMQXs
+        self.numEmqx = int(self.node.try_get_context('emqx_n') or 2 )
+
+        # LOADGEN Instance Type               
+        # suggested m5n.xlarge
+        self.loadgen_ins_type = self.node.try_get_context('loadgen_ins_type') or 't3a.micro'
+
+        # Number of LOADGENS
+        self.numLg = int(self.node.try_get_context('lg_n') or 1 )
+
+        # Extra EBS vol size for EMQX DATA per EMQX Instance
+        self.emqx_ebs_vol_size = self.node.try_get_context('emqx_ebs')
+
+        logging.warning("👍🏼  Will deploy %d %s EMQX and %d %s Loadgens" % (self.numEmqx, self.emqx_ins_type, self.numLg, self.loadgen_ins_type))
+        if self.emqx_ebs_vol_size:
+            logging.warning("💾  with extra vol %G  for EMQX" % int(self.emqx_ebs_vol_size)) 
+
