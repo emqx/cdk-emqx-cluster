@@ -14,6 +14,7 @@ Supported configs
 # default: t3a.small
 emqx_ins_type
 
+
 # Number of EMQXs
 # default: 2
 emqx_n
@@ -30,7 +31,6 @@ lg_n
 # default: null
 emqx_ebs
 ```
-
 
 ## Make sure you have AWS credentials in ~/.aws/
 
@@ -59,6 +59,8 @@ pip3 install -r requirements.txt
 
 ```
 
+Or you just run `./bin/start.sh`
+
 # Deploy
 ## Dry run create cluster named william
 
@@ -66,7 +68,7 @@ pip3 install -r requirements.txt
 CDK_EMQX_CLUSTERNAME=william cdk synth 
 ```
 
-## Real run 
+## Real run
 ```bash
 CDK_EMQX_CLUSTERNAME=william cdk deploy
 ```
@@ -87,7 +89,7 @@ CdkEmqxClusterStack.Loadbalancer = emqx-nlb-william-dd3bcdae49c13be7.elb.eu-west
 CdkEmqxClusterStack.MonitoringGrafana = lb.int.william:3000
 CdkEmqxClusterStack.MonitoringPrometheus = lb.int.william:9090
 CdkEmqxClusterStack.SSHCommandsforAccess = ssh -A -l ec2-user 54.247.190.179 -L8888:emqx-nlb-william-bbbbbbb.elb.eu-west-1.amazonaws.com:80 -L 9999:lb.int.william:80 -L 13000:lb.int.william:3000
-CdkEmqxClusterStack.SSHEntrypoint = 54.247.190.179 
+CdkEmqxClusterStack.SSHEntrypoint = 54.247.190.179
 ```
 It shows you the information of the cluster
 
@@ -101,7 +103,7 @@ It shows you the information of the cluster
   loadgen-0.int.william
 1. loadbalancer dns name:
   emqx-nlb-william-dd3bcdae49c13be7.elb.eu-west-1.amazonaws.com
-  
+
 1. Grafana Monitoring
   lb.int.william:3000
 
@@ -113,8 +115,11 @@ ssh -A -l ec2-user 54.247.190.179 -L8888:emqx-nlb-william-bbbbbbb.elb.eu-west-1.
 
 ## Access the cluster via Bastion
 ```bash
+# ensure ssh-agent is running if not
+eval `ssh-agent`
+
 # add ssh key
-ssh-add ~/.ssh/key_for_your_cluster.pem 
+ssh-add ~/.ssh/key_for_your_cluster.pem
 ```
 
 ```bash
@@ -124,11 +129,11 @@ ssh -A -l ec2-user 54.247.190.179 -L8888:emqx-nlb-william-bbbbbbb.elb.eu-west-1.
 
 ``` bash
 # EMQX
-ssh -l emqx-0.int.william
+ssh -l ubuntu emqx-0.int.william
 # LOADGEN
-ssh -l loadgen-0.int.william
+ssh -l ubuntu loadgen-0.int.william
 # ETCD
-ssh -l etcd0.int.william
+ssh -l ubuntu etcd0.int.william
 ```
 
 # Provision Grafana Dashboards
@@ -161,7 +166,7 @@ cd /root/emqtt-bench
 
 ```
 
-# Destroy cluster 
+# Destroy cluster
 ```
 CDK_EMQX_CLUSTERNAME=william cdk destroy
 
