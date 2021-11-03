@@ -1,33 +1,35 @@
-#!/bin/bash
+# This file is part of the emqx init script that will be appened to the user-data part
+maybe_mount_data() {
+  if [ -b /dev/nvme1n1 ]; then
+  echo "Find extra data vol, format and mount..."
+  mkfs.ext4 -L emqx_data /dev/nvme1n1
+  mkdir -p /var/lib/emqx/
+  mount -L  emqx_data /var/lib/emqx/
+  fi
+}
 
-domain=$(dnsdomainname)
+maybe_install_from_deb() {
+  if [ -f *.deb ]; then
+    echo "Find deb file, install from deb package..."
+    dpkg -i emqx*.deb
+  fi
+}
 
-if [ -b /dev/nvme1n1 ]; then
-echo "Find extra data vol, format and mount..."
-mkfs.ext4 -L emqx_data /dev/nvme1n1
-mkdir -p /var/lib/emqx/
-mount -L  emqx_data /var/lib/emqx/
-fi
+maybe_install_from_src() {
+  pushd ./
+  if [ -d emqx ]; then
+    echo "Find emqx source code, install from source code..."
+    cd emqx
+    HOME=/root make emqx-pkg
+    dpkg -i ./_packages/emqx/*.deb
+  fi
+  popd
+}
 
-
-# Install emqx
-# A)  install official version
-wget https://www.emqx.io/downloads/broker/v4.3.0/emqx-ubuntu20.04-4.3.0-amd64.deb
-#sudo apt install ./emqx-ubuntu20.04-4.3.0-amd64.deb
-
-
-cd /root/
-#git clone https://github.com/emqx/emqx
-
-## use private branch which inc this workaround
-# https://github.com/qzhuyan/emqx/commit/6fcd35bf8db523a5f39fd1b9c5ba181b7d3ffb98
-git clone -b perf-test/william/quic-0.0.9 https://github.com/qzhuyan/emqx
-cd emqx
-HOME=/root make emqx-pkg
-dpkg -i ./_packages/emqx/*.deb
-
-nodename="emqx@`hostname -f`"
-cat <<EOF >> /etc/emqx/emqx.conf
+config_overrides() {
+  domain=$(dnsdomainname)
+  nodename="emqx@`hostname -f`"
+  cat <<EOF >> /etc/emqx/emqx.conf
 node {
  name: $nodename
 }
@@ -99,5 +101,16 @@ rate_limit {
 }
 
 EOF
+}
 
-sudo emqx start
+# Assume we have emqx src in PWD
+# emqx src is either deb file or git src tree
+
+maybe_mount_data
+maybe_install_from_deb
+maybe_install_from_src
+
+config_overrides
+
+systemctl start emqx
+
