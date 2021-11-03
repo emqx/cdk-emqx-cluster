@@ -5,16 +5,32 @@
 git clone git@github.com:qzhuyan/cdk-emqx-cluster.git
 cd cdk-emqx-cluster
 ```
-## Modify the number of nodes and instance size in 
-```
-In cdk_emqx_cluster/cdk_emqx_cluster_stack.py
+## Decide cluster context parameters
 
-emqx_ins_type = 't3a.small'
-numEmqx=2
-emqx_ebs_vol_size=8
-loadgen_ins_type = 't3a.micro'
-numLg=1
+Supported configs
+
+```bash
+# EMQX instance TYPE
+# default: t3a.small
+emqx_ins_type
+
+# Number of EMQXs
+# default: 2
+emqx_n
+
+# Loadgen instance type
+# default: # default: t3a.small
+loadgen_ins_type
+
+# Number of Loadgens
+# default: 1
+lg_n
+
+# Extra EBS vol size (in GB) for EMQX DATA per EMQX Instance
+# default: null
+emqx_ebs
 ```
+
 
 ## Make sure you have AWS credentials in ~/.aws/
 
@@ -47,7 +63,7 @@ pip3 install -r requirements.txt
 ## Dry run create cluster named william
 
 ```bash
-CDK_EMQX_CLUSTERNAME=william cdk synth
+CDK_EMQX_CLUSTERNAME=william cdk synth 
 ```
 
 ## Real run 
