@@ -30,6 +30,15 @@ lg_n
 # Extra EBS vol size (in GB) for EMQX DATA per EMQX Instance
 # default: null
 emqx_ebs
+
+# Specify how to fetch emqx package 
+# either by downloading deb 
+# emqx_src="wget https://www.emqx.io/downloads/broker/v4.3.0/emqx-ubuntu20.04-4.3.0-amd64.deb"
+# OR
+# build from src
+# emqx_src="git clone -b some_branch https://github.com/emqx/emqx"
+# default: "git clone https://github.com/emqx/emqx"
+emqx_src
 ```
 
 ## Make sure you have AWS credentials in ~/.aws/

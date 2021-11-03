@@ -262,7 +262,10 @@ EOF
                 blockdevs = []
             userdata_hostname = ec2.UserData.for_linux()
             userdata_hostname.add_commands("hostname %s" % dnsname)
-            userdata_init = ec2.UserData.custom(emqx_user_data)
+            userdata_init = ec2.UserData.for_linux()
+            userdata_init.add_commands('cd /root')
+            userdata_init.add_commands(self.emqx_src_cmd)
+            userdata_init.add_commands(emqx_user_data)
             multipartUserData = ec2.MultipartUserData()
             multipartUserData.add_part(ec2.MultipartBody.from_user_data(userdata_hostname))
             multipartUserData.add_part(ec2.MultipartBody.from_user_data(user_data_os_common))    
@@ -468,7 +471,11 @@ EOF
         # Extra EBS vol size for EMQX DATA per EMQX Instance
         self.emqx_ebs_vol_size = self.node.try_get_context('emqx_ebs')
 
-        logging.warning("👍🏼  Will deploy %d %s EMQX and %d %s Loadgens" % (self.numEmqx, self.emqx_ins_type, self.numLg, self.loadgen_ins_type))
+        # EMQX source
+        self.emqx_src_cmd = self.node.try_get_context('emqx_src') or "git clone https://github.com/emqx/emqx"
+
+        logging.warning("👍🏼  Will deploy %d %s EMQX and %d %s Loadgens\n get emqx src by %s " 
+            % (self.numEmqx, self.emqx_ins_type, self.numLg, self.loadgen_ins_type, self.emqx_src_cmd))
         if self.emqx_ebs_vol_size:
             logging.warning("💾  with extra vol %G  for EMQX" % int(self.emqx_ebs_vol_size)) 
 
