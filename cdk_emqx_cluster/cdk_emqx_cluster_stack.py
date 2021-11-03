@@ -44,10 +44,14 @@ linux_ami = ec2.GenericLinuxImage({
     })
 
 with open("./user_data/emqx_init.sh") as f:
-    user_data = f.read()
+    emqx_user_data = f.read()
 
 with open("./user_data/loadgen_init.sh") as f:
     loadgen_user_data = f.read()
+
+with open("./user_data/os_common.sh") as f:
+    os_common_user_data = f.read()
+    user_data_os_common = ec2.UserData.custom(os_common_user_data)
 
 class CdkEmqxClusterStack(cdk.Stack):
 
@@ -118,6 +122,7 @@ EOF
             """ % (target, n)
             )
             multipartUserData = ec2.MultipartUserData()
+            multipartUserData.add_part(ec2.MultipartBody.from_user_data(user_data_os_common))
             multipartUserData.add_part(ec2.MultipartBody.from_user_data(bootScript))
             multipartUserData.add_part(ec2.MultipartBody.from_user_data(configIps))
             multipartUserData.add_part(ec2.MultipartBody.from_user_data(runscript))
@@ -269,9 +274,10 @@ EOF
             rootblockdev = ec2.BlockDevice(device_name = '/dev/xvda', volume = ec2.BlockDeviceVolume.ebs(emqx_ebs_vol_size))
             userdata_hostname = ec2.UserData.for_linux()
             userdata_hostname.add_commands("hostname %s" % dnsname)
-            userdata_init = ec2.UserData.custom(user_data)
+            userdata_init = ec2.UserData.custom(emqx_user_data)
             multipartUserData = ec2.MultipartUserData()
             multipartUserData.add_part(ec2.MultipartBody.from_user_data(userdata_hostname))
+            multipartUserData.add_part(ec2.MultipartBody.from_user_data(user_data_os_common))    
             multipartUserData.add_part(ec2.MultipartBody.from_user_data(userdata_init))
             vm = ec2.Instance(self, id = name,
                               instance_type = ec2.InstanceType(instance_type_identifier=emqx_ins_type),

@@ -146,7 +146,7 @@ sudo bash
 
 cd /root/emqtt-bench
 
-epmd -daemon; ./emqtt_bench conn -h lb.int.william
+./emqtt_bench conn -h lb.int.william
 
 ```
 
