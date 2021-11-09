@@ -1,0 +1,36 @@
+@startuml
+
+footer for emqx 5.0
+
+nwdiag {
+  internet [shape = cloud];
+  internet -- Bastion;
+
+  group Monitoring{
+    description = "Containers"
+    color = "lightgreen"
+    grafana;
+    prometheus;
+    pushgateway;
+  }
+
+  network Control {
+    Bastion
+    etcd [address = "etcd0.int.emqx"]
+    emqx [address = "emqx-0.int.emqx"]
+    loadgen [address = "loadgen-1.int.emqx"]
+    loadbalancer [address = "lb.int.emqx"]
+
+    grafana
+    prometheus
+    pushgateway
+    Bastion
+    }
+
+  network Traffic {
+   loadgen [ address = "hundreds of ips"]
+   loadbalancer
+   emqx
+  }
+}
+@enduml
