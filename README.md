@@ -2,7 +2,12 @@
 
 READ [HOWTO.md](HOWTO.md)
 
-## Useful commands
+# Network diagram
+
+![Network Diagram](./docs/full_stack.png)
+
+
+# Useful commands
 
  * `cdk ls`          list all stacks in the app
  * `cdk synth`       emits the synthesized CloudFormation template
