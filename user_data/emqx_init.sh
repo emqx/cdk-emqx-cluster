@@ -26,6 +26,36 @@ maybe_install_from_src() {
   popd
 }
 
+maybe_cluster_config_overrides_v5() {
+  if [[ "${EMQX_CDK_DB_BACKEND}" = "rlog" ]]
+  then
+    case "${EMQX_CDK_DB_BACKEND_ROLE}" in
+      core)
+        cat > /etc/emqx/cluster-override.conf <<EOF
+cluster {
+  db_backend = "rlog"
+  rlog {
+    role = "core"
+  }
+}
+EOF
+        ;;
+
+      replicant)
+        cat > /etc/emqx/cluster-override.conf <<EOF
+cluster {
+  db_backend = "rlog"
+  rlog {
+    role = "replicant"
+    core_nodes = "${EMQX_CDK_CORE_NODES}"
+  }
+}
+EOF
+        ;;
+    esac
+  fi
+}
+
 config_overrides_v5() {
   domain=$(dnsdomainname)
   nodename="emqx@`hostname -f`"
@@ -108,7 +138,7 @@ config_overrides_v4() {
   domain=$(dnsdomainname)
   echo "## ========= cloud user_data start  ===========##" >> /etc/emqx/emqx.conf
   echo "node.name = emqx@`hostname -f`" >> /etc/emqx/emqx.conf
-  
+
   cat <<EOF >> /etc/emqx/emqx.conf
 cluster.discovery = etcd
 cluster.etcd.server = http://etcd0.${domain}:2379
@@ -136,11 +166,11 @@ case "${EMQX_VERSION}" in
     ;;
   5*)
     config_overrides_v5
+    maybe_cluster_config_overrides_v5
     ;;
   *)
     echo "Unknown EMQX_VERSION: ${EMQX_VERSION}"
-esac    
+esac
 
 
 systemctl start emqx
-
