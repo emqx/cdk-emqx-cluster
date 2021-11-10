@@ -1,11 +1,23 @@
 #!/usr/bin/env bash
 apt install -y nginx
-cat <<EOF >> /etc/nginx/nginx.conf
+cat <<EOF > /etc/nginx/nginx.conf
+user www-data;
+worker_processes auto;
+pid /run/nginx.pid;
+include /etc/nginx/modules-enabled/*.conf;
+
+worker_rlimit_nofile 1000000;
+
+events {
+	worker_connections 1000000;
+	# multi_accept on;
+}
+
 # emqx
 stream {
   upstream stream_backend {
-      zone tcp_servers 64k;
-      hash \$remote_addr;
+      zone tcp_servers 64000k;
+      hash $remote_addr;
       server 127.0.0.1:1883 max_fails=2 fail_timeout=30s;
   }
 
