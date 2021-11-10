@@ -34,6 +34,9 @@ with open("./user_data/os_common.sh") as f:
     os_common_user_data = f.read()
     user_data_os_common = ec2.UserData.custom(os_common_user_data)
 
+with open("./user_data/nginx.sh") as f:
+    user_data_nginx = ec2.UserData.custom(f.read())
+
 class CdkEmqxClusterStack(cdk.Stack):
 
     def __init__(self, scope: cdk.Construct, construct_id: str, **kwargs) -> None:
@@ -270,6 +273,8 @@ EOF
             multipartUserData.add_part(ec2.MultipartBody.from_user_data(userdata_hostname))
             multipartUserData.add_part(ec2.MultipartBody.from_user_data(user_data_os_common))    
             multipartUserData.add_part(ec2.MultipartBody.from_user_data(userdata_init))
+            multipartUserData.add_part(ec2.MultipartBody.from_user_data(user_data_nginx))
+
             vm = ec2.Instance(self, id = name,
                               instance_type = ec2.InstanceType(instance_type_identifier=self.emqx_ins_type),
                               block_devices = blockdevs,
@@ -299,6 +304,7 @@ EOF
         # Add LB endpoints
         listener = nlb.add_listener("port1883", port=1883)
         listenerTLS = nlb.add_listener("port8883", port=8883) # TLS, emqx terminataion
+        listenerTLSNginx = nlb.add_listener("port18883", port=18883)
         listenerQuic = nlb.add_listener("port14567", port=14567, protocol=elbv2.Protocol.UDP)
         listenerUI = nlb.add_listener("port80", port=80)
         
@@ -322,6 +328,10 @@ EOF
         listenerTLS.add_targets('ec2',
                                 port=8883,
                                 targets=[ target.InstanceTarget(x)
+                                   for x in self.emqx_vms])
+        listenerTLSNginx.add_targets('ec2',
+                               port=18883,
+                               targets=[ target.InstanceTarget(x)
                                    for x in self.emqx_vms])
 
     def setup_etcd(self):
@@ -410,6 +420,7 @@ EOF
         sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(22), 'SSH from anywhere')
         sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(1883), 'MQTT TCP Port')
         sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(8883), 'MQTT TCP/TLS Port')
+        sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(18883), 'NGINX')
         sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.udp(14567), 'MQTT Quic Port')
         sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(18083), 'WEB UI')
         sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(4369), 'EMQX dist port 1')
