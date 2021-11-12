@@ -26,7 +26,9 @@ setuptools.setup(
         "aws-cdk.aws-elasticloadbalancingv2==1.130.0",
         "aws-cdk.aws-elasticloadbalancingv2-targets==1.130.0",
         "aws-cdk.aws-logs==1.130.0",
-        "aws-cdk.aws-route53==1.130.0"
+        "aws-cdk.aws-route53==1.130.0",
+        "aws-cdk.aws-fis==1.130.0",
+        "aws-cdk.aws-iam==1.130.0"
     ],
 
     python_requires=">=3.6",
