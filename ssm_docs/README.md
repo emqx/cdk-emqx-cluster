@@ -1,0 +1,3 @@
+AWS SSM DOC contents
+
+
