@@ -8,11 +8,13 @@ from aws_cdk import core as cdk
 from aws_cdk import (core as cdk, aws_ec2 as ec2, aws_ecs as ecs,
                      core as core,
                      aws_logs as aws_logs,
-                     aws_elasticloadbalancingv2 as elb,                     
+                     aws_elasticloadbalancingv2 as elb,
                      aws_elasticloadbalancingv2_targets as target,
                      aws_route53 as r53,
-                     aws_route53_targets as r53_targets,                     
+                     aws_route53_targets as r53_targets,
                      aws_elasticloadbalancingv2 as elbv2,
+                     aws_fis as fis,
+                     aws_iam as iam,
                      aws_ecs_patterns as ecs_patterns)
 from aws_cdk.core import Duration, CfnParameter
 from base64 import b64encode
@@ -52,7 +54,7 @@ class CdkEmqxClusterStack(cdk.Stack):
 
         # Read context params
         self.read_param()
-        
+
         # Prepare infrastructure
         self.set_cluster_name()
         self.setup_ssh_key()
@@ -61,7 +63,7 @@ class CdkEmqxClusterStack(cdk.Stack):
         self.setup_r53()
         self.setup_lb()
 
-        # Setup Bastion 
+        # Setup Bastion
         self.setup_bastion()
 
         # Create Application Services
@@ -69,6 +71,9 @@ class CdkEmqxClusterStack(cdk.Stack):
         self.setup_etcd()
         self.setup_loadgen(self.numLg)
         self.setup_monitoring(self.hosts)
+
+        # setup Fis
+        self.setup_fis()
 
         # Outputs
         self.cfn_outputs()
@@ -110,6 +115,7 @@ EOF
             """ % (target, n)
             )
             multipartUserData = ec2.MultipartUserData()
+            configIps.add_commands("hostname %s" % name + self.domain)
             multipartUserData.add_part(ec2.MultipartBody.from_user_data(user_data_os_common))
             multipartUserData.add_part(ec2.MultipartBody.from_user_data(bootScript))
             multipartUserData.add_part(ec2.MultipartBody.from_user_data(configIps))
@@ -123,7 +129,7 @@ EOF
                                  vpc = vpc,
                                  source_dest_check = False
             )
-            
+
             ## add routes for traffic from loadgen
             i=1
             for net in vpc.private_subnets:
@@ -132,9 +138,9 @@ EOF
                               router_type = ec2.RouterType.INSTANCE,
                               destination_cidr_block = "192.168.%d.0/24" % n)
                 i+=1
-            
+
             dnsname = "%s%s" % (name, self.domain)
-            r53.ARecord(self, 
+            r53.ARecord(self,
                         id = dnsname,
                         record_name = dnsname,
                         zone = zone,
@@ -255,13 +261,13 @@ EOF
         nlb = self.nlb
         self.emqx_vms = []
 
-        
+
         for n in range(0, N):
             name = "emqx-%d" % n
             dnsname = name + self.domain
             if self.emqx_ebs_vol_size and int(self.emqx_ebs_vol_size) > 0:
                 blockdevs = [ec2.BlockDevice(device_name = '/dev/xvda', volume = ec2.BlockDeviceVolume.ebs(int(self.emqx_ebs_vol_size)))]
-            else:   
+            else:
                 blockdevs = []
             userdata_hostname = ec2.UserData.for_linux()
             userdata_hostname.add_commands("hostname %s" % dnsname)
@@ -271,7 +277,7 @@ EOF
             userdata_init.add_commands(emqx_user_data)
             multipartUserData = ec2.MultipartUserData()
             multipartUserData.add_part(ec2.MultipartBody.from_user_data(userdata_hostname))
-            multipartUserData.add_part(ec2.MultipartBody.from_user_data(user_data_os_common))    
+            multipartUserData.add_part(ec2.MultipartBody.from_user_data(user_data_os_common))
             multipartUserData.add_part(ec2.MultipartBody.from_user_data(userdata_init))
             multipartUserData.add_part(ec2.MultipartBody.from_user_data(user_data_nginx))
 
@@ -288,7 +294,7 @@ EOF
 
             self.emqx_vms.append(vm)
 
-            
+
             r53.ARecord(self, id = dnsname,
                         record_name = dnsname,
                         zone = zone,
@@ -301,13 +307,17 @@ EOF
                 core.Tags.of(vm).add(*self.user_defined_tags)
             core.Tags.of(vm).add('service', 'emqx')
 
+            # tag ins for chaos testing with AWS FIS
+            if self.is_chaos_ready:
+                core.Tags.of(vm).add('chaos_ready', 'true')
+
         # Add LB endpoints
         listener = nlb.add_listener("port1883", port=1883)
         listenerTLS = nlb.add_listener("port8883", port=8883) # TLS, emqx terminataion
         listenerTLSNginx = nlb.add_listener("port18883", port=18883)
         listenerQuic = nlb.add_listener("port14567", port=14567, protocol=elbv2.Protocol.UDP)
         listenerUI = nlb.add_listener("port80", port=80)
-        
+
         listener.add_targets('ec2',
                              port=1883,
                              targets=
@@ -405,7 +415,7 @@ EOF
                                          zone_name = "int.%s" % self.cluster_name,
                                          vpc = self.vpc
         )
-       
+
     def setup_ssh_key(self):
         self.ssh_key = CfnParameter(self, "ssh key",
              type="String", default="key_ireland",
@@ -453,7 +463,7 @@ EOF
         self.loadbalancer_dnsname='lb' + self.domain
         nlb = elb.NetworkLoadBalancer(self, "emqx-elb",
                                       vpc = self.vpc,
-                                      internet_facing = False, 
+                                      internet_facing = False,
                                       cross_zone_enabled = True,
                                       load_balancer_name="emqx-nlb-%s" % self.cluster_name)
         r53.ARecord(self, "AliasRecord",
@@ -464,6 +474,9 @@ EOF
         self.nlb = nlb
 
     def read_param(self):
+        # CHAOS_READY, if true, cluster is chaos ready and able to accept chaos tests.
+        self.is_chaos_ready = bool(self.node.try_get_context('chaos'))
+
         # EMQX Instance Type
         # https://aws.amazon.com/ec2/instance-types/
         # suggested m5.2xlarge
@@ -472,7 +485,7 @@ EOF
         # Number of EMQXs
         self.numEmqx = int(self.node.try_get_context('emqx_n') or 2 )
 
-        # LOADGEN Instance Type               
+        # LOADGEN Instance Type
         # suggested m5n.xlarge
         self.loadgen_ins_type = self.node.try_get_context('loadgen_ins_type') or 't3a.micro'
 
@@ -485,8 +498,66 @@ EOF
         # EMQX source
         self.emqx_src_cmd = self.node.try_get_context('emqx_src') or "git clone https://github.com/emqx/emqx"
 
-        logging.warning("👍🏼  Will deploy %d %s EMQX and %d %s Loadgens\n get emqx src by %s " 
+        logging.warning("👍🏼  Will deploy %d %s EMQX and %d %s Loadgens\n get emqx src by %s "
             % (self.numEmqx, self.emqx_ins_type, self.numLg, self.loadgen_ins_type, self.emqx_src_cmd))
         if self.emqx_ebs_vol_size:
-            logging.warning("💾  with extra vol %G  for EMQX" % int(self.emqx_ebs_vol_size)) 
+            logging.warning("💾  with extra vol %G  for EMQX" % int(self.emqx_ebs_vol_size))
 
+
+    def setup_fis(self):
+        """
+        Setup Fis
+         - create a chaos experiment template
+         - create role for it
+        you can trigger the chaos experiment by:
+         aws fis start-experiment --experiment-template-id=EXT4ETdyMGaZ4RN8
+        """
+        if not self.is_chaos_ready:
+            return
+        policy = iam.PolicyDocument()
+        policy.add_statements(
+            iam.PolicyStatement(
+                sid = 'AllowFISExperimentRoleEC2ReadOnly',
+                actions =  ['ec2:DescribeInstances'],
+                resources = ["*"],
+                effect = iam.Effect.ALLOW
+            ),
+            iam.PolicyStatement(
+                sid = 'AllowFISExperimentRoleEC2Actions',
+                actions =  ['ec2:RebootInstances',
+                            'ec2:StopInstances',
+                            'ec2:StartInstances',
+                            'ec2:TerminateInstances'],
+                resources = ['arn:aws:ec2:*:*:instance/*'],
+                effect = iam.Effect.ALLOW
+            ),
+            iam.PolicyStatement(
+                sid = 'AllowFISExperimentRoleSpotInstanceActions',
+                actions =  ['ec2:RebootInstances',
+                            'ec2:StopInstances',
+                            'ec2:StartInstances',
+                            'ec2:TerminateInstances'],
+                resources = ['arn:aws:ec2:*:*:instance/*'],
+                effect = iam.Effect.ALLOW
+            )
+        )
+        fis_role = iam.Role(self, id = 'emqx-fis-role',
+                        assumed_by = iam.ServicePrincipal('fis.amazonaws.com'),
+                        inline_policies = [policy]
+                        ),
+        fis.CfnExperimentTemplate(self, id = 'emqx-node-shutdown',
+                            description = 'EMQX node shutdown',
+                            role_arn = fis_role[0].role_arn,
+                            stop_conditions = [fis.CfnExperimentTemplate.ExperimentTemplateStopConditionProperty(source = "none")],
+                            tags = {'domain' : self.domain},
+                            targets = {'target-1' : fis.CfnExperimentTemplate.ExperimentTemplateTargetProperty(
+                                resource_type = 'aws:ec2:instance',
+                                selection_mode = 'COUNT(1)',
+                                resource_tags = {'chaos_ready': 'true', 'domain': self.domain}
+                            )},
+                            actions = {'action-1' : fis.CfnExperimentTemplate.ExperimentTemplateActionProperty(
+                                action_id='aws:ec2:stop-instances',
+                                parameters={'startInstancesAfterDuration': 'PT1M'},
+                                targets = {'Instances': 'target-1'} # reference to targets
+                                )}
+        )
