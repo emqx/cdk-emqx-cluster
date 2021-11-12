@@ -161,7 +161,7 @@ password: admin
 
 # Use Loadgen
 
-Fist ssh to loadgen
+First ssh to loadgen
 
 ``` bash
 # become root
@@ -180,3 +180,13 @@ cd /root/emqtt-bench
 CDK_EMQX_CLUSTERNAME=william cdk destroy
 
 ```
+
+# Performance tests
+*NOTE:* These are pretty large instances, so only use this for finding performance numbers.
+
+For some more relevant performance tests, you can use larger instances. For a two node emqx cluster with one loadgen with a particular branch:
+```bash
+CDK_EMQX_CLUSTERNAME=william cdk deploy -c emqx_src="git clone -b YOUR_BRANCH https://github.com/emqx/emqx" -c emqx_n=2 -c emqx_ins_type="m5.2xlarge" -c loadgen_ins_type="m5n.xlarge" -c emqx_eb=20
+
+```
+The `emqx_ebs` is needed since these instances do not have storage by default.
