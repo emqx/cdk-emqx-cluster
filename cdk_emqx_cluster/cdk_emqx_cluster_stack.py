@@ -15,11 +15,13 @@ from aws_cdk import (core as cdk, aws_ec2 as ec2, aws_ecs as ecs,
                      aws_elasticloadbalancingv2 as elbv2,
                      aws_fis as fis,
                      aws_iam as iam,
+                     aws_ssm as ssm,
                      aws_ecs_patterns as ecs_patterns)
 from aws_cdk.core import Duration, CfnParameter
 from base64 import b64encode
 import sys
 import logging
+import yaml
 
 linux_ami = ec2.GenericLinuxImage({
     #"eu-west-1": "ami-06fd78dc2f0b69910", # ubuntu 18.04 latest
@@ -38,6 +40,9 @@ with open("./user_data/os_common.sh") as f:
 
 with open("./user_data/nginx.sh") as f:
     user_data_nginx = ec2.UserData.custom(f.read())
+
+with open("./ssm_docs/start_traffic.yaml") as f:
+    doc_start_traffic = f.read()
 
 class CdkEmqxClusterStack(cdk.Stack):
 
@@ -74,6 +79,7 @@ class CdkEmqxClusterStack(cdk.Stack):
 
         # setup Fis
         self.setup_fis()
+        self.setup_ssm_commands()
 
         # Outputs
         self.cfn_outputs()
@@ -109,8 +115,9 @@ class CdkEmqxClusterStack(cdk.Stack):
             runscript.add_commands("""cat << EOF > /root/emqtt-bench/run.sh
             #!/bin/bash
             ulimit -n 1000000
-            ipaddrs=$(ip addr | grep -o '192.*/32' | sed 's#/32##g' | paste -s -d , -)
-            _build/default/bin/emqtt_bench sub -h %s -t "root/%%c/1/+/abc/#" -c 200000 --prefix "prefix%d" --ifaddr \$ipaddrs -i 5
+            cd /root/emqtt-bench
+            ipaddrs=$(ip addr |grep -o '192.*/32' | sed 's#/32##g' | paste -s -d , -)
+            _build/default/bin/emqtt_bench sub -h %s -t "root/%%c/1/+/abc/#" -c 200000 --prefix "prefix%d" --ifaddr $ipaddrs -i 5
 EOF
             chmod +x /root/emqtt-bench/run.sh
             """ % (target, n)
@@ -309,7 +316,7 @@ EOF
                               vpc = vpc,
                               vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE),
             )
-
+            vm.role.add_managed_policy(iam.ManagedPolicy.from_aws_managed_policy_name('AmazonSSMManagedInstanceCore'))
             self.emqx_vms.append(vm)
 
             r53.ARecord(self, id = dnsname,
@@ -602,3 +609,13 @@ EOF
                                 targets = {'Instances': 'target-1'} # reference to targets
                                 )}
         )
+    def setup_ssm_commands(self):
+        ssm.CfnDocument(self, id ='start-loadgen',
+                        content = yaml.safe_load(doc_start_traffic),
+                        document_format = 'YAML',
+                        document_type = 'Command',
+                        tags = [core.CfnTag(key = 'domain', value = self.domain)]
+                        )
+
+
+

@@ -28,7 +28,9 @@ setuptools.setup(
         "aws-cdk.aws-logs==1.130.0",
         "aws-cdk.aws-route53==1.130.0",
         "aws-cdk.aws-fis==1.130.0",
-        "aws-cdk.aws-iam==1.130.0"
+        "aws-cdk.aws-iam==1.130.0",
+        "aws-cdk.aws-ssm==1.130.0",
+        "pyyaml"
     ],
 
     python_requires=">=3.6",
