@@ -60,7 +60,8 @@ mainSteps:
       ulimit -n 1000000
       cd /root/emqtt-bench
       ipaddrs=$(ip addr |grep -o '192.*/32' | sed 's#/32##g' | paste -s -d , -)
-      _build/default/bin/emqtt_bench "{{ Command }}" -h "{{ Host }}" -t "{{ Topic }}" -c "{{ Clients }}" --prefix "{{ Prefix }}"  -i {{ Interval }} --ifaddr $ipaddrs
+      nohup _build/default/bin/emqtt_bench "{{ Command }}" -h "{{ Host }}" -t "{{ Topic }}" -c "{{ Clients }}" --prefix "{{ Prefix }}"  -i {{ Interval }} --ifaddr $ipaddrs \
+        > run.log &
 
 
 
