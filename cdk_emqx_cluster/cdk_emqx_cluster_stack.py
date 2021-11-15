@@ -388,9 +388,9 @@ EOF
 
     def setup_vpc(self):
         vpc = ec2.Vpc(self, "VPC EMQX %s" % self.cluster_name,
-            max_azs=2,
+            max_azs=1,
             cidr="10.10.0.0/16",
-            # configuration will create 3 groups in 2 AZs = 6 subnets.
+            # configuration will create 3 groups in 1 AZs = 3 subnets.
             subnet_configuration=[ec2.SubnetConfiguration(
                 subnet_type=ec2.SubnetType.PUBLIC,
                 name="Public",
@@ -400,6 +400,7 @@ EOF
                 name="Private",
                 cidr_mask=24
             )],
+            nat_gateways = 1
             )
         self.vpc = vpc
 
