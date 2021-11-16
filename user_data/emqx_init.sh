@@ -61,7 +61,14 @@ config_overrides_v5() {
   nodename="emqx@`hostname -f`"
   cat <<EOF >> /etc/emqx/emqx.conf
 node {
- name: $nodename
+  name: $nodename
+
+  ## Erlang Process Limit
+  process_limit: 2097152
+
+  ## Sets the maximum number of simultaneously existing ports for this
+  ## system
+  max_ports: 1048576
 }
 
 cluster {
@@ -74,7 +81,8 @@ cluster {
 }
 
 listeners.tcp.default {
- acceptors: 128
+  acceptors: 128
+  max_connections: 1024000
 }
 
 rate_limit {
@@ -90,11 +98,10 @@ prometheus {
 }
 
 gateway.exproto {
-server {
-  bind = 9101
- }
+  server {
+    bind = 9101
+  }
 }
-
 
 rate_limit {
   ## Maximum connections per second.
