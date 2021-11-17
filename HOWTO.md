@@ -21,6 +21,15 @@ emqx_ins_type
 # default: 2
 emqx_n
 
+# Type of DB Backend
+# choice: "mnesia" | "rlog"
+# default: "mnesia"
+emqx_db_backend
+
+# Number of core nodes. Only relevant if `emqx_db_backend' = "rlog"
+# default: same as `emqx_n'
+emqx_num_core_nodes
+
 # Loadgen instance type
 # default: # default: t3a.small
 loadgen_ins_type
@@ -33,8 +42,8 @@ lg_n
 # default: null
 emqx_ebs
 
-# Specify how to fetch emqx package 
-# either by downloading deb 
+# Specify how to fetch emqx package
+# either by downloading deb
 # emqx_src="wget https://www.emqx.io/downloads/broker/v4.3.0/emqx-ubuntu20.04-4.3.0-amd64.deb"
 # OR
 # build from src
@@ -81,7 +90,7 @@ CDK_EMQX_CLUSTERNAME=william cdk synth
 
 ## Real run
 ```bash
-CDK_EMQX_CLUSTERNAME=william cdk deploy 
+CDK_EMQX_CLUSTERNAME=william cdk deploy
 ```
 
 ## Lazy Note: If you want to deploy EMQX with private branch, with 5 emqx nodes

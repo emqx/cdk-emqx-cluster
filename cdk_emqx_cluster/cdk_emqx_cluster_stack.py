@@ -109,10 +109,20 @@ class CdkEmqxClusterStack(cdk.Stack):
             runscript.add_commands("""cat << EOF > /root/emqtt-bench/run.sh
             #!/bin/bash
             ulimit -n 1000000
-            ipaddrs=$(ip addr |grep -o '192.*/32' | sed 's#/32##g' | paste -s -d , -)
-            _build/default/bin/emqtt_bench sub -h %s -t "root/%%c/1/+/abc/#" -c 200000 --prefix "prefix%d" --ifaddr $ipaddrs -i 5
+            ipaddrs=$(ip addr | grep -o '192.*/32' | sed 's#/32##g' | paste -s -d , -)
+            _build/default/bin/emqtt_bench sub -h %s -t "root/%%c/1/+/abc/#" -c 200000 --prefix "prefix%d" --ifaddr \$ipaddrs -i 5
 EOF
+            chmod +x /root/emqtt-bench/run.sh
             """ % (target, n)
+            )
+            runscript.add_commands("""cat << EOF > /root/emqtt-bench/with-ipaddrs.sh
+            #!/bin/bash
+            ulimit -n 1000000
+            ipaddrs=$(ip addr | grep -o '192.*/32' | sed 's#/32##g' | paste -s -d , -)
+            "\$@" --ifaddr \$ipaddrs
+EOF
+            chmod +x /root/emqtt-bench/with-ipaddrs.sh
+            """
             )
             multipartUserData = ec2.MultipartUserData()
             configIps.add_commands("hostname %s" % name + self.domain)
@@ -260,11 +270,15 @@ EOF
         key = self.ssh_key
         nlb = self.nlb
         self.emqx_vms = []
-
+        self.emqx_core_nodes = []
 
         for n in range(0, N):
             name = "emqx-%d" % n
             dnsname = name + self.domain
+            isCore = n <= self.numCoreNodes - 1
+            dbBackendRole = "core" if isCore else "replicant"
+            if isCore:
+                self.emqx_core_nodes.append("emqx@" + dnsname)
             if self.emqx_ebs_vol_size and int(self.emqx_ebs_vol_size) > 0:
                 blockdevs = [ec2.BlockDevice(device_name = '/dev/xvda', volume = ec2.BlockDeviceVolume.ebs(int(self.emqx_ebs_vol_size)))]
             else:
@@ -274,6 +288,10 @@ EOF
             userdata_init = ec2.UserData.for_linux()
             userdata_init.add_commands('cd /root')
             userdata_init.add_commands(self.emqx_src_cmd)
+            userdata_init.add_commands(f"EMQX_CDK_DB_BACKEND={self.dbBackend}")
+            userdata_init.add_commands(f"EMQX_CDK_DB_BACKEND_ROLE={dbBackendRole}")
+            if not isCore:
+                userdata_init.add_commands(f"EMQX_CDK_CORE_NODES={','.join(self.emqx_core_nodes)}")
             userdata_init.add_commands(emqx_user_data)
             multipartUserData = ec2.MultipartUserData()
             multipartUserData.add_part(ec2.MultipartBody.from_user_data(userdata_hostname))
@@ -293,7 +311,6 @@ EOF
             )
 
             self.emqx_vms.append(vm)
-
 
             r53.ARecord(self, id = dnsname,
                         record_name = dnsname,
@@ -409,6 +426,7 @@ EOF
         if not self.cluster_name:
             sys.exit("Cannot define cluster_name")
         self.domain = ".int.%s" % self.cluster_name
+        logging.warning(f"✅  Cluster name: {self.cluster_name}")
 
     def setup_r53(self):
         self.r53_zone_name = "%s_emqx_hosted_zone" % self.cluster_name
@@ -486,6 +504,24 @@ EOF
         # Number of EMQXs
         self.numEmqx = int(self.node.try_get_context('emqx_n') or 2 )
 
+        # Type of DB Backend
+        # choice: "mnesia" | "rlog"
+        # default: "mnesia"
+        dbBackend = self.node.try_get_context('emqx_db_backend') or "mnesia"
+        dbBackendChoices = ("mnesia", "rlog")
+        if dbBackend not in dbBackendChoices:
+            logging.error(f"👎 parameter `emqx_db_backend' must be one of: {dbBackendChoices}")
+            raise RuntimeError(f"invalid `emqx_db_backend': {dbBackend}")
+        self.dbBackend = dbBackend
+
+        # Number of core nodes. Only relevant if `emqx_db_backend' = "rlog"
+        # default: same as `emqx_n'
+        numCoreNodes = int(self.node.try_get_context('emqx_num_core_nodes') or self.numEmqx)
+        if numCoreNodes > self.numEmqx:
+            logging.error(f"👎 parameter `emqx_num_core_nodes' must be less or equal to `emqx_n'")
+            raise RuntimeError(f"invalid `emqx_num_core_nodes': {numCoreNodes}")
+        self.numCoreNodes = numCoreNodes
+
         # LOADGEN Instance Type
         # suggested m5n.xlarge
         self.loadgen_ins_type = self.node.try_get_context('loadgen_ins_type') or 't3a.micro'
@@ -504,6 +540,10 @@ EOF
         if self.emqx_ebs_vol_size:
             logging.warning("💾  with extra vol %G  for EMQX" % int(self.emqx_ebs_vol_size))
 
+        logging.warning(f"💽  DB backend: {self.dbBackend}")
+        if self.dbBackend == "rlog":
+            numReplicants = self.numEmqx - self.numCoreNodes
+            logging.warning(f"💽    with {numReplicants} replicant and {self.numCoreNodes} core node(s)")
 
     def setup_fis(self):
         """
