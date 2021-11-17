@@ -17,8 +17,7 @@ tc_1 {
     # step 4: wait for traffic to back to normal
     sleep 300;
     # step 5: collect logs
-    # @TODO not working yet
-    #$BASEDIR/send_cmd.sh "$cluster" "collect_logs"
+    $BASEDIR/send_cmd.sh "$cluster" "collect_logs"
 }
 
 # cluster name 'CDK_EMQX_CLUSTERNAME' when you deploy cdk
