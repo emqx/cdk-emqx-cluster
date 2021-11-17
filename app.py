@@ -11,6 +11,7 @@ from aws_cdk import core as cdk
 from aws_cdk import core
 
 from cdk_emqx_cluster.cdk_emqx_cluster_stack import CdkEmqxClusterStack
+from cdk_emqx_cluster.chaos_test import CdkChaosTest
 
 
 app = core.App()
@@ -35,5 +36,8 @@ CdkEmqxClusterStack(app, "CdkEmqxClusterStack", stack_name = stack_name
 
     # For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html
     )
+
+
+CdkChaosTest(app, "CDKChaosTest", stack_name = stack_name + 'chaostest', cluster_name = stack_name)
 
 app.synth()
