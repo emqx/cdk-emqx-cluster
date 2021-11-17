@@ -37,7 +37,7 @@ CdkEmqxClusterStack(app, "CdkEmqxClusterStack", stack_name = stack_name
     # For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html
     )
 
-
+# Stack for running chaos test including SSM and FIS resources
 CdkChaosTest(app, "CDKChaosTest", stack_name = stack_name + 'chaostest', cluster_name = stack_name)
 
 app.synth()

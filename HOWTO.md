@@ -33,8 +33,8 @@ lg_n
 # default: null
 emqx_ebs
 
-# Specify how to fetch emqx package 
-# either by downloading deb 
+# Specify how to fetch emqx package
+# either by downloading deb
 # emqx_src="wget https://www.emqx.io/downloads/broker/v4.3.0/emqx-ubuntu20.04-4.3.0-amd64.deb"
 # OR
 # build from src
@@ -76,17 +76,22 @@ Or you just run `./bin/start.sh`
 ## Dry run create cluster named william
 
 ```bash
-CDK_EMQX_CLUSTERNAME=william cdk synth
+CDK_EMQX_CLUSTERNAME=william cdk synth CdkEmqxClusterStack
+```
+
+## Only deploy cluster
+```bash
+CDK_EMQX_CLUSTERNAME=william cdk synth CdkEmqxClusterStack
 ```
 
 ## Real run
 ```bash
-CDK_EMQX_CLUSTERNAME=william cdk deploy 
+CDK_EMQX_CLUSTERNAME=william cdk deploy CdkEmqxClusterStack
 ```
 
 ## Lazy Note: If you want to deploy EMQX with private branch, with 5 emqx nodes
 ```bash
-CDK_EMQX_CLUSTERNAME=william cdk deploy -c emqx_src="git clone -b your_branch https://github.com/emqx/emqx" -c emqx_n=5
+CDK_EMQX_CLUSTERNAME=william cdk deploy CdkEmqxClusterStack -c emqx_src="git clone -b your_branch https://github.com/emqx/emqx" -c emqx_n=5
 ```
 
 At the end of run, you will get some outputs such like,
@@ -184,6 +189,6 @@ cd /root/emqtt-bench
 
 # Destroy cluster
 ```
-CDK_EMQX_CLUSTERNAME=william cdk destroy
+CDK_EMQX_CLUSTERNAME=william cdk destroy CdkEmqxClusterStack
 
 ```
