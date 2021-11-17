@@ -17,7 +17,7 @@ events {
 stream {
   upstream stream_backend {
       zone tcp_servers 64000k;
-      hash $remote_addr;
+      hash \$remote_addr;
       server 127.0.0.1:1883 max_fails=2 fail_timeout=30s;
   }
 
