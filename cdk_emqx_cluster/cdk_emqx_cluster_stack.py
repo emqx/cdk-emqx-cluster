@@ -16,6 +16,7 @@ from aws_cdk import (core as cdk, aws_ec2 as ec2, aws_ecs as ecs,
                      aws_fis as fis,
                      aws_iam as iam,
                      aws_ssm as ssm,
+                     aws_s3 as s3,
                      aws_ecs_patterns as ecs_patterns)
 from aws_cdk.core import Duration, CfnParameter
 from base64 import b64encode
@@ -60,6 +61,7 @@ class CdkEmqxClusterStack(cdk.Stack):
             self.user_defined_tags = None
 
         self.loadbalancer_dnsname = ""
+        self.s3_bucket_policy = None
 
         self.hosts = []
 
@@ -70,6 +72,7 @@ class CdkEmqxClusterStack(cdk.Stack):
         self.set_cluster_name()
 
         self.setup_ssh_key()
+        self.setup_s3()
         self.setup_vpc()
         self.setup_sg()
         self.setup_r53()
@@ -85,10 +88,10 @@ class CdkEmqxClusterStack(cdk.Stack):
         self.setup_monitoring(self.hosts)
 
         # ssm docs for send_command
-        #self.setup_ssm_commands()
+        # self.setup_ssm_commands()
 
         # setup Fis
-        #self.setup_fis()
+        # self.setup_fis()
 
         # Outputs
         self.cfn_outputs()
@@ -354,6 +357,7 @@ EOF
                                   subnet_type=ec2.SubnetType.PRIVATE),
                               )
             self.attach_ssm_policy(vm.role)
+            self.attach_s3_policy(vm.role)
             self.emqx_vms.append(vm)
 
             r53.ARecord(self, id=dnsname,
@@ -369,9 +373,8 @@ EOF
             core.Tags.of(vm).add('service', 'emqx')
 
             # tag ins for chaos testing with AWS FIS
-            if self.is_chaos_ready:
-                core.Tags.of(vm).add('chaos_ready', 'true')
-                core.Tags.of(vm).add('cluster', self.cluster_name)
+            core.Tags.of(vm).add('chaos_ready', 'true')
+            core.Tags.of(vm).add('cluster', self.cluster_name)
 
         # Add LB endpoints
         listener = nlb.add_listener("port1883", port=1883)
@@ -457,16 +460,16 @@ EOF
                       # configuration will create 3 groups in 2 AZs = 6 subnets.
                       subnet_configuration=[
                           ec2.SubnetConfiguration(
-                          subnet_type=ec2.SubnetType.PUBLIC,
-                          name="Public",
-                          cidr_mask=24
-                      ),
-                      ec2.SubnetConfiguration(
-                          subnet_type=ec2.SubnetType.PRIVATE,
-                          name="Private",
-                          cidr_mask=24
-                      )],
-                      nat_gateways = 1
+                              subnet_type=ec2.SubnetType.PUBLIC,
+                              name="Public",
+                              cidr_mask=24
+                          ),
+                          ec2.SubnetConfiguration(
+                              subnet_type=ec2.SubnetType.PRIVATE,
+                              name="Private",
+                              cidr_mask=24
+                          )],
+                      nat_gateways=1
                       )
         self.vpc = vpc
 
@@ -519,6 +522,12 @@ EOF
         sg.add_ingress_rule(ec2.Peer.any_ipv4(),
                             ec2.Port.tcp(2380), 'ETCD peer port')
         self.sg = sg
+
+    def setup_s3(self):
+        self.s3_bucket_name = 'emqx-cdk-cluster'
+        s3.Bucket(self, id = self.s3_bucket_name, auto_delete_objects = False,
+                    bucket_name = self.s3_bucket_name,
+        )
 
     def setup_bastion(self):
         """
@@ -765,5 +774,29 @@ EOF
     @staticmethod
     def attach_ssm_policy(role):
         role.add_managed_policy(
-                iam.ManagedPolicy.from_aws_managed_policy_name('AmazonSSMManagedInstanceCore'))
+            iam.ManagedPolicy.from_aws_managed_policy_name('AmazonSSMManagedInstanceCore'))
 
+    def attach_s3_policy(self, role):
+        id = 's3-access-cluster-bucket'
+        #policy = iam.Policy.from_policy_name(self, id = None, policy_name = self.cluster_name + id)
+        policy = self.s3_bucket_policy
+        if not policy:
+            # https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-arn-format.html
+            resource = core.Arn.format(core.ArnComponents(service='s3',
+                                                          account='', # acc should not be set for s3 arn
+                                                          region='', # region should not be set for s3 arn
+                                                          resource=self.s3_bucket_name,  # bucket name
+                                                          resource_name=self.cluster_name+'*'
+                                                          ), self)
+
+            statement_all = iam.PolicyStatement(actions=['s3:*'],
+                                            effect=iam.Effect.ALLOW,
+                                            resources=[resource])
+            statement_list = iam.PolicyStatement(actions=['s3:List*'],
+                                            effect=iam.Effect.ALLOW,
+                                            resources=['*'])
+
+            policy = iam.Policy(self, id=id, statements=[statement_all, statement_list])
+            self.s3_bucket_policy = policy
+
+        role.attach_inline_policy(policy)

@@ -1,0 +1,49 @@
+description: |-
+  ### Document name - collect_logs
+
+  ## What does this document do?
+  collect emqx logs and then copy to s3
+
+  ## Dependencies installed by this SSM Document
+  N/A
+
+  ## Input Parameters
+  S3 bucket: S3 bucket name
+
+  ## Output Parameters
+  None.
+
+schemaVersion: '2.2'
+parameters:
+  Bucket:
+    type: String
+    description: S3 bucket name
+    default: 'emqx-cdk-cluster'
+  Path:
+    type: String
+    description: Path
+
+mainSteps:
+- action: aws:runShellScript
+  name: node_dump
+  precondition:
+    StringEquals:
+    - platformType
+    - Linux
+  description: |
+    run node_dump tool
+  inputs:
+    onFailure: exit
+    runCommand:
+    - |
+      #!/bin/bash
+      Path="s3://{{ Bucket }}/{{ Path }}"/`hostname`
+      /usr/lib/emqx/bin/node_dump
+      for f in $(ls /var/log/emqx/node_dump*);
+      do
+      aws s3 cp "$f" "$Path/$f";
+      done
+
+
+
+
