@@ -9,6 +9,7 @@ description: |-
 
   ## Input Parameters
   S3 bucket: S3 bucket name
+  PATH: Object Path
 
   ## Output Parameters
   None.
