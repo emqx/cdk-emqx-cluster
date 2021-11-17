@@ -57,22 +57,26 @@ class CdkChaosTest(cdk.Stack):
         ]
 
         self.cmds = [
-            ControlCmd(self, 'start_traffic', 'start_traffic.yaml', service = 'loadgen'),
-            ControlCmd(self, 'collect_logs', 'collect_logs.yaml', service = 'emqx')
+            ControlCmd(self, 'start_traffic',
+                       'start_traffic.yaml', service='loadgen'),
+            ControlCmd(self, 'collect_logs',
+                       'collect_logs.yaml', service='emqx')
         ]
+
 
 class ControlCmd(ssm.CfnDocument):
     def __init__(self, scope: cdk.Construct, construct_id: str, doc_name: str, service: str, **kwargs) -> None:
         content = yaml.safe_load(open("./ssm_docs/" + doc_name).read())
         super().__init__(scope, construct_id,
-                         tags = [core.CfnTag(key = 'cluster', value = scope.cluster_name),
-                                 core.CfnTag(key = 'service', value = service),
-                                 core.CfnTag(key = 'cmd', value = construct_id)
-                                ],
-                         document_format = 'YAML',
-                         document_type = 'Command',
-                         content = content,
+                         tags=[core.CfnTag(key='cluster', value=scope.cluster_name),
+                               core.CfnTag(key='service', value=service),
+                               core.CfnTag(key='cmd', value=construct_id)
+                               ],
+                         document_format='YAML',
+                         document_type='Command',
+                         content=content,
                          **kwargs)
+
 
 class CdkExpirement(fis.CfnExperimentTemplate):
     """
@@ -85,7 +89,7 @@ class CdkExpirement(fis.CfnExperimentTemplate):
                          stop_conditions=[
                              fis.CfnExperimentTemplate.ExperimentTemplateStopConditionProperty(source="none")],
                          tags={'cluster': scope.cluster_name,
-                                'fault_name': name},
+                               'fault_name': name},
                          role_arn=scope.role_arn,
                          **kwargs)
 
