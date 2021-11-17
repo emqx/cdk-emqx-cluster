@@ -25,8 +25,8 @@ import yaml
 import json
 
 linux_ami = ec2.GenericLinuxImage({
-    # "eu-west-1": "ami-06fd78dc2f0b69910", # ubuntu 18.04 latest
-    "eu-west-1": "ami-09c60c18b634a5e00",  # ubuntu 20.04 latest
+    # https://cloud-images.ubuntu.com/locator/ec2/
+    "eu-west-1": "ami-08edbb0e85d6a0a07",  # ubuntu 20.04 latest
 })
 
 with open("./user_data/emqx_init.sh") as f:
@@ -50,6 +50,7 @@ class CdkEmqxClusterStack(cdk.Stack):
 
     def __init__(self, scope: cdk.Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
+        self.exp1 = None
 
         # The code that defines your stack goes here
         if self.node.try_get_context("tags"):
@@ -84,10 +85,10 @@ class CdkEmqxClusterStack(cdk.Stack):
         self.setup_monitoring(self.hosts)
 
         # ssm docs for send_command
-        self.setup_ssm_commands()
+        #self.setup_ssm_commands()
 
         # setup Fis
-        self.setup_fis()
+        #self.setup_fis()
 
         # Outputs
         self.cfn_outputs()
@@ -185,6 +186,7 @@ EOF
             if self.user_defined_tags:
                 core.Tags.of(ins).add(*self.user_defined_tags)
             core.Tags.of(lg_vm).add('service', 'loadgen')
+            core.Tags.of(lg_vm).add('cluster', self.cluster_name)
 
     def setup_monitoring(self, targets):
         vpc = self.vpc
@@ -610,157 +612,156 @@ EOF
             numReplicants = self.numEmqx - self.numCoreNodes
             logging.warning(f"💽    with {numReplicants} replicant and {self.numCoreNodes} core node(s)")
 
-    def setup_fis(self):
-        """
-        Setup Fis
-         - create a chaos experiment template
-         - create role for it
-        you can trigger the chaos experiment by:
-         aws fis start-experiment --experiment-template-id=EXT4ETdyMGaZ4RN8
-        """
-        if not self.is_chaos_ready:
-            return
-        policy = iam.PolicyDocument()
-        policy.add_statements(
-            iam.PolicyStatement(
-                sid='AllowFISExperimentRoleEC2ReadOnly',
-                actions=['ec2:DescribeInstances'],
-                resources=["*"],
-                effect=iam.Effect.ALLOW
-            ),
-            iam.PolicyStatement(
-                sid='AllowFISExperimentRoleEC2Actions',
-                actions=['ec2:RebootInstances',
-                         'ec2:StopInstances',
-                         'ec2:StartInstances',
-                         'ec2:TerminateInstances'],
-                resources=['arn:aws:ec2:*:*:instance/*'],
-                effect=iam.Effect.ALLOW
-            ),
-            iam.PolicyStatement(
-                sid='AllowFISExperimentRoleSpotInstanceActions',
-                actions=['ec2:RebootInstances',
-                         'ec2:StopInstances',
-                         'ec2:StartInstances',
-                         'ec2:TerminateInstances'],
-                resources=['arn:aws:ec2:*:*:instance/*'],
-                effect=iam.Effect.ALLOW
-            )
-        )
-        # https://docs.aws.amazon.com/fis/latest/userguide/getting-started-iam-service-role.html
+#     def setup_fis(self):
+#         """
+#         Setup Fis
+#          - create a chaos experiment template
+#          - create role for it
+#         you can trigger the chaos experiment by:
+#          aws fis start-experiment --experiment-template-id=EXT4ETdyMGaZ4RN8
+#         """
+#         if not self.is_chaos_ready:
+#             return
+#         policy = iam.PolicyDocument()
+#         policy.add_statements(
+#             iam.PolicyStatement(
+#                 sid='AllowFISExperimentRoleEC2ReadOnly',
+#                 actions=['ec2:DescribeInstances'],
+#                 resources=["*"],
+#                 effect=iam.Effect.ALLOW
+#             ),
+#             iam.PolicyStatement(
+#                 sid='AllowFISExperimentRoleEC2Actions',
+#                 actions=['ec2:RebootInstances',
+#                          'ec2:StopInstances',
+#                          'ec2:StartInstances',
+#                          'ec2:TerminateInstances'],
+#                 resources=['arn:aws:ec2:*:*:instance/*'],
+#                 effect=iam.Effect.ALLOW
+#             ),
+#             iam.PolicyStatement(
+#                 sid='AllowFISExperimentRoleSpotInstanceActions',
+#                 actions=['ec2:RebootInstances',
+#                          'ec2:StopInstances',
+#                          'ec2:StartInstances',
+#                          'ec2:TerminateInstances'],
+#                 resources=['arn:aws:ec2:*:*:instance/*'],
+#                 effect=iam.Effect.ALLOW
+#             )
+#         )
+#         # https://docs.aws.amazon.com/fis/latest/userguide/getting-started-iam-service-role.html
 
-        ssmPolicyJson = """
-        {
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Sid": "AllowFISExperimentRoleSSMReadOnly",
-            "Effect": "Allow",
-            "Action": [
-                "ec2:DescribeInstances",
-                "ssm:GetAutomationExecution",
-                "ssm:ListCommands"
-            ],
-            "Resource": "*"
-        },
-        {
-            "Sid": "AllowFISExperimentRoleSSMSendCommand",
-            "Effect": "Allow",
-            "Action": [
-                "ssm:SendCommand"
-            ],
-            "Resource": [
-                "arn:aws:ec2:*:*:instance/*",
-                "arn:aws:ssm:*:*:document/*"
-            ]
-        },
-        {
-            "Sid": "AllowFISExperimentRoleSSMCancelCommand",
-            "Effect": "Allow",
-            "Action": [
-                "ssm:CancelCommand"
-            ],
-            "Resource": "*"
-        },
-        {
-            "Sid": "AllowFISExperimentRoleSSMAutomation",
-            "Effect": "Allow",
-            "Action": [
-                "ssm:StartAutomationExecution",
-                "ssm:StopAutomationExecution"
-            ],
-            "Resource": "*"
-        },
-        {
-            "Sid": "AllowFISExperimentRoleSSMAutomationPassRole",
-            "Effect": "Allow",
-            "Action": [
-                "iam:PassRole"
-            ],
-            "Resource": "arn:aws:iam::123456789012:role/my-automation-role"
-        }
-    ]
-}
-        """
-        policy_ssm = iam.PolicyDocument.from_json(json.loads(ssmPolicyJson))
-        fis_role = iam.Role(self, id='emqx-fis-role',
-                            assumed_by=iam.ServicePrincipal(
-                                'fis.amazonaws.com'),
-                            inline_policies=[policy, policy_ssm]
-                            ),
+#         ssmPolicyJson = """
+#         {
+#     "Version": "2012-10-17",
+#     "Statement": [
+#         {
+#             "Sid": "AllowFISExperimentRoleSSMReadOnly",
+#             "Effect": "Allow",
+#             "Action": [
+#                 "ec2:DescribeInstances",
+#                 "ssm:GetAutomationExecution",
+#                 "ssm:ListCommands"
+#             ],
+#             "Resource": "*"
+#         },
+#         {
+#             "Sid": "AllowFISExperimentRoleSSMSendCommand",
+#             "Effect": "Allow",
+#             "Action": [
+#                 "ssm:SendCommand"
+#             ],
+#             "Resource": [
+#                 "arn:aws:ec2:*:*:instance/*",
+#                 "arn:aws:ssm:*:*:document/*"
+#             ]
+#         },
+#         {
+#             "Sid": "AllowFISExperimentRoleSSMCancelCommand",
+#             "Effect": "Allow",
+#             "Action": [
+#                 "ssm:CancelCommand"
+#             ],
+#             "Resource": "*"
+#         },
+#         {
+#             "Sid": "AllowFISExperimentRoleSSMAutomation",
+#             "Effect": "Allow",
+#             "Action": [
+#                 "ssm:StartAutomationExecution",
+#                 "ssm:StopAutomationExecution"
+#             ],
+#             "Resource": "*"
+#         },
+#         {
+#             "Sid": "AllowFISExperimentRoleSSMAutomationPassRole",
+#             "Effect": "Allow",
+#             "Action": [
+#                 "iam:PassRole"
+#             ],
+#             "Resource": "arn:aws:iam::123456789012:role/my-automation-role"
+#         }
+#     ]
+# }
+#         """
+#         policy_ssm = iam.PolicyDocument.from_json(json.loads(ssmPolicyJson))
+#         fis_role = iam.Role(self, id='emqx-fis-role',
+#                             assumed_by=iam.ServicePrincipal(
+#                                 'fis.amazonaws.com'),
+#                             inline_policies=[policy, policy_ssm]
+#                             )
 
-        self.exp1 = fis.CfnExperimentTemplate(self, id='emqx-node-shutdown',
-                                  description='EMQX node shutdown',
-                                  role_arn=fis_role[0].role_arn,
-                                  stop_conditions=[
-                                      fis.CfnExperimentTemplate.ExperimentTemplateStopConditionProperty(source="none")],
-                                  tags={'domain': self.domain},
-                                  targets={'targets-emqx': fis.CfnExperimentTemplate.ExperimentTemplateTargetProperty(
-                                            resource_type='aws:ec2:instance',
-                                            selection_mode='COUNT(1)',
-                                            resource_tags={'chaos_ready': 'true', 'cluster': self.cluster_name}),
-                                           'targets-loadgen': fis.CfnExperimentTemplate.ExperimentTemplateTargetProperty(
-                                            resource_type='aws:ec2:instance',
-                                            selection_mode='COUNT(1)',
-                                            resource_tags={'service': 'loadgen'})
-                                  },
-                                  actions={'action-1': fis.CfnExperimentTemplate.ExperimentTemplateActionProperty(
-                                                action_id='aws:fis:wait',
-                                                parameters={'duration': 'PT2M'}),
-                                            'action-2': fis.CfnExperimentTemplate.ExperimentTemplateActionProperty(
-                                                action_id='aws:ec2:stop-instances',
-                                                parameters={'startInstancesAfterDuration': 'PT1M'},
-                                                # reference to targets
-                                                targets={'Instances': 'targets-emqx'},
-                                                start_after=['action-1']
-                                                ),
-                                            'action-3': fis.CfnExperimentTemplate.ExperimentTemplateActionProperty(
-                                                action_id='aws:ssm:send-command',
-                                                parameters={
-                                                    #something like: arn:aws:ssm:eu-west-1::document/AWSFIS-Run-IO-Stress
-                                                    'documentArn' :
-                                                        core.Arn.format(core.ArnComponents(service = 'ssm',
-                                                                        resource = 'document',
-                                                                        resource_name = self.ssm_cmd_start_loadgen.ref), self),
+#         self.exp1 = fis.CfnExperimentTemplate(self, id='emqx-node-shutdown',
+#                                   description='EMQX node shutdown',
+#                                   role_arn=fis_role[0].role_arn,
+#                                   stop_conditions=[
+#                                       fis.CfnExperimentTemplate.ExperimentTemplateStopConditionProperty(source="none")],
+#                                   tags={'domain': self.domain},
+#                                   targets={'targets-emqx': fis.CfnExperimentTemplate.ExperimentTemplateTargetProperty(
+#                                             resource_type='aws:ec2:instance',
+#                                             selection_mode='COUNT(1)',
+#                                             resource_tags={'chaos_ready': 'true', 'cluster': self.cluster_name}),
+#                                            'targets-loadgen': fis.CfnExperimentTemplate.ExperimentTemplateTargetProperty(
+#                                             resource_type='aws:ec2:instance',
+#                                             selection_mode='COUNT(1)')
+#                                   },
+#                                   actions={'action-1': fis.CfnExperimentTemplate.ExperimentTemplateActionProperty(
+#                                                 action_id='aws:fis:wait',
+#                                                 parameters={'duration': 'PT2M'}),
+#                                             'action-2': fis.CfnExperimentTemplate.ExperimentTemplateActionProperty(
+#                                                 action_id='aws:ec2:stop-instances',
+#                                                 parameters={'startInstancesAfterDuration': 'PT1M'},
+#                                                 # reference to targets
+#                                                 targets={'Instances': 'targets-emqx'},
+#                                                 start_after=['action-1']
+#                                                 ),
+#                                             'action-3': fis.CfnExperimentTemplate.ExperimentTemplateActionProperty(
+#                                                 action_id='aws:ssm:send-command',
+#                                                 parameters={
+#                                                     #something like: arn:aws:ssm:eu-west-1::document/AWSFIS-Run-IO-Stress
+#                                                     'documentArn' :
+#                                                         core.Arn.format(core.ArnComponents(service = 'ssm',
+#                                                                         resource = 'document',
+#                                                                         resource_name = self.ssm_cmd_start_loadgen.ref), self),
 
-                                                    'documentParameters' : json.dumps({'Host': self.loadbalancer_dnsname}),
-                                                    'duration': 'PT5M'
-                                                },
-                                                # reference to targets
-                                                targets={'Instances': 'targets-loadgen'},
-                                                )
-                                            }
-                                  )
+#                                                     'documentParameters' : json.dumps({'Host': self.loadbalancer_dnsname}),
+#                                                     'duration': 'PT5M'
+#                                                 },
+#                                                 # reference to targets
+#                                                 targets={'Instances': 'targets-loadgen'},
+#                                                 )
+#                                             }
+#                                   )
 
-    def setup_ssm_commands(self):
-        self.ssm_cmd_start_loadgen = ssm.CfnDocument(self, id='start-loadgen',
-                                                      content=yaml.safe_load(
-                                                          doc_start_traffic),
-                                                      document_format='YAML',
-                                                      document_type='Command',
-                                                      tags=[core.CfnTag(
-                                                          key='domain', value=self.domain)]
-                                                      )
+#     def setup_ssm_commands(self):
+#         self.ssm_cmd_start_loadgen = ssm.CfnDocument(self, id='start-loadgen',
+#                                                       content=yaml.safe_load(
+#                                                           doc_start_traffic),
+#                                                       document_format='YAML',
+#                                                       document_type='Command',
+#                                                       tags=[core.CfnTag(
+#                                                           key='domain', value=self.domain)]
+#                                                     )
     @staticmethod
     def attach_ssm_policy(role):
         role.add_managed_policy(
