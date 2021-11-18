@@ -16,7 +16,7 @@ sysctl -w net.ipv4.udp_mem="74583000 499445000 749166000"
 
 ## Install OTP
 apt update
-apt install -y make prometheus wget gnupg2 git build-essential curl cmake debhelper tmux awscli
+apt install -y make wget gnupg2 git build-essential curl cmake debhelper tmux awscli
 #snap install cmake --classic
 wget -O - https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc | sudo apt-key add -
 echo "deb https://packages.erlang-solutions.com/ubuntu focal contrib" | tee /etc/apt/sources.list.d/els.list
