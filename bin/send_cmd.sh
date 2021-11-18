@@ -1,7 +1,14 @@
 #!/bin/bash
 
 ################################################################################
-# This script is used to send a command to the device with AWS SSM
+# This script is used to send a command to the node with AWS SSM
+# commands are cluster wide, it will self pick the target nodes.
+#
+# supported commands:
+#  - start_traffic
+#     start background traffic on the node (pub and sub)
+#  - collect_logs
+#     collect logs from the emqx nodes and copy it to S3 bucket
 ################################################################################
 
 

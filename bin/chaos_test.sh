@@ -1,6 +1,7 @@
 #!/bin/bash
 ###############################################################################
 # We put chaos tests script here and hopefully we could reuse these scripts in k8s env
+# To run chaos test the stack called CDKchaosTest should be deployed.
 ###############################################################################
 
 set -e

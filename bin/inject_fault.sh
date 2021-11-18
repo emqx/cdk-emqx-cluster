@@ -1,5 +1,11 @@
 #!/bin/bash
 
+###############################################################################
+# Fault injection experiments
+# For supported faults see chaos_test.py
+#
+###############################################################################
+
 # cluster name 'CDK_EMQX_CLUSTERNAME' when you deploy cdk
 cluster=$1
 
