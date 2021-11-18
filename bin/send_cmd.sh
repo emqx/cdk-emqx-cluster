@@ -30,18 +30,18 @@ case $command in
     "start_traffic")
         # supply command parameters and targets
         LB="lb.int.$cluster"
-        aws ssm send-command --document-name "$doc_name" --document-version "1" \
-            --parameters "{\"Host\": [\"$LB\"], \"Command\":[\"sub\"],\"Prefix\":[\"cdk\"],\"Topic\":[\"topic_a\"],\"Clients\":[\"200\"],\"Interval\":[\"10\"]}" \
+        aws ssm send-command --document-name "$doc_name" \
+            --parameters "{\"Host\": [\"$LB\"], \"Command\":[\"sub\"],\"Prefix\":[\"cdk\"],\"Topic\":[\"topic_a\"],\"Clients\":[\"200000\"],\"Interval\":[\"50\"]}" \
             --targets "[{\"Key\":\"tag:cluster\",\"Values\":[\"$cluster\"]},{\"Key\":\"tag:service\",\"Values\":[\"loadgen\"]}]" \
             --timeout-seconds 60 --max-concurrency "30" --max-errors "0"
 
-        aws ssm send-command --document-name "$doc_name" --document-version "1" \
-            --parameters "{\"Host\": [\"$LB\"], \"Command\":[\"pub\"],\"Prefix\":[\"cdk\"],\"Topic\":[\"topic_a\"],\"Clients\":[\"200\"],\"Interval\":[\"10\"]}" \
+        aws ssm send-command --document-name "$doc_name" \
+            --parameters "{\"Host\": [\"$LB\"], \"Command\":[\"pub\"],\"Prefix\":[\"cdk\"],\"Topic\":[\"topic_a\"],\"Clients\":[\"200000\"],\"Interval\":[\"50\"]}" \
             --targets "[{\"Key\":\"tag:cluster\",\"Values\":[\"$cluster\"]},{\"Key\":\"tag:service\",\"Values\":[\"loadgen\"]}]" \
             --timeout-seconds 60 --max-concurrency "30" --max-errors "0"
         ;;
     "collect_logs")
-        aws ssm send-command --document-name "$doc_name" --document-version "1" \
+        aws ssm send-command --document-name "$doc_name" \
             --parameters "{\"Bucket\":[\"emqx-cdk-cluster\"],\"Path\":[\"$cluster\"]}" \
             --targets "[{\"Key\":\"tag:cluster\",\"Values\":[\"$cluster\"]},{\"Key\":\"tag:service\",\"Values\":[\"emqx\"]}]" \
             --timeout-seconds 600 --max-concurrency "50" --max-errors "0" --region eu-west-1
