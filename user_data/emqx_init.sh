@@ -62,13 +62,6 @@ config_overrides_v5() {
   cat <<EOF >> /etc/emqx/emqx.conf
 node {
   name: $nodename
-
-  ## Erlang Process Limit
-  process_limit: 2097152
-
-  ## Sets the maximum number of simultaneously existing ports for this
-  ## system
-  max_ports: 1048576
 }
 
 cluster {
