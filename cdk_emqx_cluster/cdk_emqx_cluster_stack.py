@@ -518,9 +518,10 @@ EOF
 
     def setup_s3(self):
         self.s3_bucket_name = 'emqx-cdk-cluster'
-        s3.Bucket(self, id = self.s3_bucket_name, auto_delete_objects = False,
+        if not s3.Bucket.from_bucket_name(self, self.s3_bucket_name, self.s3_bucket_name):
+            s3.Bucket(self, id = self.s3_bucket_name, auto_delete_objects = False,
                     bucket_name = self.s3_bucket_name,
-        )
+            )
 
     def setup_bastion(self):
         """
