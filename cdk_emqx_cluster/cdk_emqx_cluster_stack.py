@@ -209,6 +209,18 @@ EOF
             chmod +x /root/emqtt-bench/with-ipaddrs.sh
             """
             )
+            # make the hostname persistent across reboots
+            runscript.add_commands("""\
+            if ! grep -q 'preserve_hostname: true' /etc/cloud/cloud.cfg
+            then
+              if ! grep -q 'preserve_hostname:' /etc/cloud/cloud.cfg
+              then
+                echo 'preserve_hostname: true' >> /etc/cloud/cloud.cfg
+              else
+                sed -i -e 's/preserve_hostname: false/preserve_hostname: true/' /etc/cloud/cloud.cfg
+              fi
+            fi
+            """)
 
             multipartUserData = ec2.MultipartUserData()
             multipartUserData.add_part(
@@ -391,6 +403,20 @@ EOF
             persistent_config = ec2.UserData.for_linux()
             persistent_config.add_commands(emqx_setup_script(n, dnsname))
 
+            hostname_cloud_init = ec2.UserData.for_linux()
+            # make the hostname persistent across reboots
+            hostname_cloud_init.add_commands("""\
+            if ! grep -q 'preserve_hostname: true' /etc/cloud/cloud.cfg
+            then
+              if ! grep -q 'preserve_hostname:' /etc/cloud/cloud.cfg
+              then
+                echo 'preserve_hostname: true' >> /etc/cloud/cloud.cfg
+              else
+                sed -i -e 's/preserve_hostname: false/preserve_hostname: true/' /etc/cloud/cloud.cfg
+              fi
+            fi
+            """)
+
             userdata_init = ec2.UserData.for_linux()
             userdata_init.add_commands('cd /root')
             userdata_init.add_commands(self.emqx_src_cmd)
@@ -399,9 +425,12 @@ EOF
             if not isCore:
                 userdata_init.add_commands(f"EMQX_CDK_CORE_NODES={','.join(self.emqx_core_nodes)}")
             userdata_init.add_commands(emqx_user_data)
+
             multipartUserData = ec2.MultipartUserData()
             multipartUserData.add_part(
                 ec2.MultipartBody.from_user_data(persistent_config))
+            multipartUserData.add_part(
+                ec2.MultipartBody.from_user_data(hostname_cloud_init))
             multipartUserData.add_part(
                 ec2.MultipartBody.from_user_data(user_data_os_common))
             multipartUserData.add_part(
