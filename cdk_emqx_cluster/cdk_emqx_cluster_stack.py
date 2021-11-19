@@ -102,6 +102,7 @@ def emqx_setup_script(n : int, hostname: str) -> str:
         cat <<EOF > /etc/systemd/system/emqx-setup.service
         [Unit]
         Description=Configures EMQX on every boot
+        Before=emqx.service
 
         [Service]
         ExecStart=/bin/bash /usr/bin/emqx-setup.sh
