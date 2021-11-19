@@ -32,6 +32,7 @@ tc_1() {
 }
 
 # cluster name 'CDK_EMQX_CLUSTERNAME' when you deploy cdk
-tc_name=$2
+cluster="$1"
+tc_name="$2"
 
-$tc_name $1
+$tc_name $cluster

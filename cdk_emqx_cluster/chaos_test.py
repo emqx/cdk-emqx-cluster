@@ -30,7 +30,7 @@ class CdkChaosTest(cdk.Stack):
         self.role_arn = role.role_arn
         self.exps = [
             # note, ec2 instances must be tagged with 'chaos_ready' to get tested
-            CdkExpirement(self, id='emqx-node-shutdown', name='emqx-node-shutdown',
+            CdkExperiment(self, id='emqx-node-shutdown', name='emqx-node-shutdown',
                           description='emqx node shutdown',
 
                           # targets for faults injections
@@ -78,7 +78,7 @@ class ControlCmd(ssm.CfnDocument):
                          **kwargs)
 
 
-class CdkExpirement(fis.CfnExperimentTemplate):
+class CdkExperiment(fis.CfnExperimentTemplate):
     """
     Wrap ExperimentTemplate in a Stack
     note, to *save costs* avoid long during actions
