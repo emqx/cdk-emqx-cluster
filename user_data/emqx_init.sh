@@ -32,23 +32,19 @@ maybe_cluster_config_overrides_v5() {
     case "${EMQX_CDK_DB_BACKEND_ROLE}" in
       core)
         cat > /etc/emqx/cluster-override.conf <<EOF
-cluster {
-  db_backend = "rlog"
-  rlog {
-    role = "core"
-  }
+db {
+  backend = "rlog"
+  role = "core"
 }
 EOF
         ;;
 
       replicant)
         cat > /etc/emqx/cluster-override.conf <<EOF
-cluster {
-  db_backend = "rlog"
-  rlog {
-    role = "replicant"
-    core_nodes = "${EMQX_CDK_CORE_NODES}"
-  }
+db {
+  backend = "rlog"
+  role = "replicant"
+  core_nodes = "${EMQX_CDK_CORE_NODES}"
 }
 EOF
         ;;
