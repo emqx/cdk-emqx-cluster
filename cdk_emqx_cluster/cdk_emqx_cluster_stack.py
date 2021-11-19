@@ -400,8 +400,8 @@ EOF
             else:
                 blockdevs = []
 
-            persistent_config = ec2.UserData.for_linux()
-            persistent_config.add_commands(emqx_setup_script(n, dnsname))
+            persistentConfig = ec2.UserData.for_linux()
+            persistentConfig.add_commands(emqx_setup_script(n, dnsname))
 
             hostname_cloud_init = ec2.UserData.for_linux()
             # make the hostname persistent across reboots
@@ -428,7 +428,7 @@ EOF
 
             multipartUserData = ec2.MultipartUserData()
             multipartUserData.add_part(
-                ec2.MultipartBody.from_user_data(persistent_config))
+                ec2.MultipartBody.from_user_data(persistentConfig))
             multipartUserData.add_part(
                 ec2.MultipartBody.from_user_data(hostname_cloud_init))
             multipartUserData.add_part(
