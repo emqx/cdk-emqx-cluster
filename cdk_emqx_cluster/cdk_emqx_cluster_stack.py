@@ -191,25 +191,29 @@ class CdkEmqxClusterStack(cdk.Stack):
             persistentConfig.add_commands(loadgen_setup_script(n, name + self.domain))
 
             runscript = ec2.UserData.for_linux()
-            runscript.add_commands("""cat << EOF > /root/emqtt-bench/run.sh
-            #!/bin/bash
-            ulimit -n 1000000
-            cd /root/emqtt-bench
-            ipaddrs=$(ip addr |grep -o '192.*/32' | sed 's#/32##g' | paste -s -d , -)
-            _build/default/bin/emqtt_bench sub -h %s -t "root/%%c/1/+/abc/#" -c 200000 --prefix "prefix%d" --ifaddr \$ipaddrs -i 5
-EOF
-            chmod +x /root/emqtt-bench/run.sh
-            """ % (target, n)
-            )
-            runscript.add_commands("""cat << EOF > /root/emqtt-bench/with-ipaddrs.sh
-            #!/bin/bash
-            ulimit -n 1000000
-            ipaddrs=$(ip addr | grep -o '192.*/32' | sed 's#/32##g' | paste -s -d , -)
-            "\$@" --ifaddr \$ipaddrs
-EOF
-            chmod +x /root/emqtt-bench/with-ipaddrs.sh
-            """
-            )
+            runscript.add_commands(textwrap.dedent(
+                """\
+                cat << EOF > /root/emqtt-bench/run.sh
+                #!/bin/bash
+                ulimit -n 1000000
+                cd /root/emqtt-bench
+                ipaddrs=\$(ip addr |grep -o '192.*/32' | sed 's#/32##g' | paste -s -d , -)
+                _build/default/bin/emqtt_bench sub -h %s -t "root/%%c/1/+/abc/#" -c 200000 --prefix "prefix%d" --ifaddr \$ipaddrs -i 5
+                EOF
+                chmod +x /root/emqtt-bench/run.sh
+                """ % (target, n)
+            ))
+            runscript.add_commands(textwrap.dedent(
+                """\
+                cat << EOF > /root/emqtt-bench/with-ipaddrs.sh
+                #!/bin/bash
+                ulimit -n 1000000
+                ipaddrs=\$(ip addr | grep -o '192.*/32' | sed 's#/32##g' | paste -s -d , -)
+                "\$@" --ifaddr \$ipaddrs
+                EOF
+                chmod +x /root/emqtt-bench/with-ipaddrs.sh
+                """
+            ))
             # make the hostname persistent across reboots
             runscript.add_commands("""\
             if ! grep -q 'preserve_hostname: true' /etc/cloud/cloud.cfg
