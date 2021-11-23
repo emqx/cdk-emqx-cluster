@@ -22,6 +22,7 @@ from aws_cdk.core import Duration, CfnParameter
 from base64 import b64encode
 import sys
 import logging
+import textwrap
 import yaml
 import json
 
@@ -46,6 +47,75 @@ with open("./user_data/nginx.sh") as f:
 with open("./ssm_docs/start_traffic.yaml") as f:
     doc_start_traffic = f.read()
 
+def loadgen_setup_script(n : int, hostname: str) -> str:
+    return textwrap.dedent(
+        f"""\
+        cat <<EOF > /usr/bin/loadgen-setup.sh
+        #!/bin/bash
+        set -xeu
+
+        hostname {hostname}
+        hostnamectl set-hostname {hostname}
+
+        for x in \$(seq 2 250); do ip addr add 192.168.{n}.\$x dev ens5; done
+
+        # emqtt bench escript will not start epmd, so we start it here
+        epmd -daemon
+
+        touch /tmp/setup-done
+        EOF
+
+        chmod +x /usr/bin/loadgen-setup.sh
+
+        cat <<EOF > /etc/systemd/system/loadgen.service
+        [Unit]
+        Description=Configures loadgen on every boot
+
+        [Service]
+        ExecStart=/bin/bash /usr/bin/loadgen-setup.sh
+
+        [Install]
+        WantedBy=multi-user.target
+        EOF
+
+        systemctl daemon-reload
+        systemctl enable loadgen.service
+        systemctl start loadgen.service
+        """
+    )
+
+def emqx_setup_script(n : int, hostname: str) -> str:
+    return textwrap.dedent(
+        f"""\
+        cat <<EOF > /usr/bin/emqx-setup.sh
+        #!/bin/bash
+        set -xeu
+
+        hostname {hostname}
+        hostnamectl set-hostname {hostname}
+
+        touch /tmp/setup-done
+        EOF
+
+        chmod +x /usr/bin/emqx-setup.sh
+
+        cat <<EOF > /etc/systemd/system/emqx-setup.service
+        [Unit]
+        Description=Configures EMQX on every boot
+        Before=emqx.service
+
+        [Service]
+        ExecStart=/bin/bash /usr/bin/emqx-setup.sh
+
+        [Install]
+        WantedBy=multi-user.target
+        EOF
+
+        systemctl daemon-reload
+        systemctl enable emqx-setup.service
+        systemctl start emqx-setup.service
+        """
+    )
 
 class CdkEmqxClusterStack(cdk.Stack):
     def __init__(self, scope: cdk.Construct, construct_id: str, **kwargs) -> None:
@@ -116,37 +186,54 @@ class CdkEmqxClusterStack(cdk.Stack):
         for n in range(0, N):
             name = "loadgen-%d" % n
             bootScript = ec2.UserData.custom(loadgen_user_data)
-            configIps = ec2.UserData.for_linux()
-            configIps.add_commands(
-                "for x in $(seq 2 250); do ip addr add 192.168.%d.$x dev ens5; done" % n)
+
+            persistentConfig = ec2.UserData.for_linux()
+            persistentConfig.add_commands(loadgen_setup_script(n, name + self.domain))
+
             runscript = ec2.UserData.for_linux()
-            runscript.add_commands("""cat << EOF > /root/emqtt-bench/run.sh
-            #!/bin/bash
-            ulimit -n 1000000
-            cd /root/emqtt-bench
-            ipaddrs=$(ip addr |grep -o '192.*/32' | sed 's#/32##g' | paste -s -d , -)
-            _build/default/bin/emqtt_bench sub -h %s -t "root/%%c/1/+/abc/#" -c 200000 --prefix "prefix%d" --ifaddr \$ipaddrs -i 5
-EOF
-            chmod +x /root/emqtt-bench/run.sh
-            """ % (target, n)
-            )
-            runscript.add_commands("""cat << EOF > /root/emqtt-bench/with-ipaddrs.sh
-            #!/bin/bash
-            ulimit -n 1000000
-            ipaddrs=$(ip addr | grep -o '192.*/32' | sed 's#/32##g' | paste -s -d , -)
-            "\$@" --ifaddr \$ipaddrs
-EOF
-            chmod +x /root/emqtt-bench/with-ipaddrs.sh
-            """
-            )
+            runscript.add_commands(textwrap.dedent(
+                """\
+                cat << EOF > /root/emqtt-bench/run.sh
+                #!/bin/bash
+                ulimit -n 1000000
+                cd /root/emqtt-bench
+                ipaddrs=\$(ip addr |grep -o '192.*/32' | sed 's#/32##g' | paste -s -d , -)
+                _build/default/bin/emqtt_bench sub -h %s -t "root/%%c/1/+/abc/#" -c 200000 --prefix "prefix%d" --ifaddr \$ipaddrs -i 5
+                EOF
+                chmod +x /root/emqtt-bench/run.sh
+                """ % (target, n)
+            ))
+            runscript.add_commands(textwrap.dedent(
+                """\
+                cat << EOF > /root/emqtt-bench/with-ipaddrs.sh
+                #!/bin/bash
+                ulimit -n 1000000
+                ipaddrs=\$(ip addr | grep -o '192.*/32' | sed 's#/32##g' | paste -s -d , -)
+                "\$@" --ifaddr \$ipaddrs
+                EOF
+                chmod +x /root/emqtt-bench/with-ipaddrs.sh
+                """
+            ))
+            # make the hostname persistent across reboots
+            runscript.add_commands("""\
+            if ! grep -q 'preserve_hostname: true' /etc/cloud/cloud.cfg
+            then
+              if ! grep -q 'preserve_hostname:' /etc/cloud/cloud.cfg
+              then
+                echo 'preserve_hostname: true' >> /etc/cloud/cloud.cfg
+              else
+                sed -i -e 's/preserve_hostname: false/preserve_hostname: true/' /etc/cloud/cloud.cfg
+              fi
+            fi
+            """)
+
             multipartUserData = ec2.MultipartUserData()
-            configIps.add_commands("hostname %s" % name + self.domain)
             multipartUserData.add_part(
                 ec2.MultipartBody.from_user_data(user_data_os_common))
             multipartUserData.add_part(
                 ec2.MultipartBody.from_user_data(bootScript))
             multipartUserData.add_part(
-                ec2.MultipartBody.from_user_data(configIps))
+                ec2.MultipartBody.from_user_data(persistentConfig))
             multipartUserData.add_part(
                 ec2.MultipartBody.from_user_data(runscript))
             lg_vm = ec2.Instance(self, id=name,
@@ -317,8 +404,24 @@ EOF
                     device_name='/dev/xvda', volume=ec2.BlockDeviceVolume.ebs(int(self.emqx_ebs_vol_size)))]
             else:
                 blockdevs = []
-            userdata_hostname = ec2.UserData.for_linux()
-            userdata_hostname.add_commands("hostname %s" % dnsname)
+
+            persistentConfig = ec2.UserData.for_linux()
+            persistentConfig.add_commands(emqx_setup_script(n, dnsname))
+
+            hostname_cloud_init = ec2.UserData.for_linux()
+            # make the hostname persistent across reboots
+            hostname_cloud_init.add_commands("""\
+            if ! grep -q 'preserve_hostname: true' /etc/cloud/cloud.cfg
+            then
+              if ! grep -q 'preserve_hostname:' /etc/cloud/cloud.cfg
+              then
+                echo 'preserve_hostname: true' >> /etc/cloud/cloud.cfg
+              else
+                sed -i -e 's/preserve_hostname: false/preserve_hostname: true/' /etc/cloud/cloud.cfg
+              fi
+            fi
+            """)
+
             userdata_init = ec2.UserData.for_linux()
             userdata_init.add_commands('cd /root')
             userdata_init.add_commands(self.emqx_src_cmd)
@@ -327,9 +430,12 @@ EOF
             if not isCore:
                 userdata_init.add_commands(f"EMQX_CDK_CORE_NODES={','.join(self.emqx_core_nodes)}")
             userdata_init.add_commands(emqx_user_data)
+
             multipartUserData = ec2.MultipartUserData()
             multipartUserData.add_part(
-                ec2.MultipartBody.from_user_data(userdata_hostname))
+                ec2.MultipartBody.from_user_data(persistentConfig))
+            multipartUserData.add_part(
+                ec2.MultipartBody.from_user_data(hostname_cloud_init))
             multipartUserData.add_part(
                 ec2.MultipartBody.from_user_data(user_data_os_common))
             multipartUserData.add_part(
