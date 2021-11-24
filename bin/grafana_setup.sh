@@ -21,7 +21,7 @@ EOF
 
 echo "Import Dashboards"
 
-for d in 15012 11074;
+for d in 15012 11074 1860;
 do
     j=$(curl ${login}@${target}/api/gnet/dashboards/$d | jq .json)
     payload="{\"dashboard\":$j,\"overwrite\":true}"
