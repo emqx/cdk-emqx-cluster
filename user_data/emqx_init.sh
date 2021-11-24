@@ -32,23 +32,19 @@ maybe_cluster_config_overrides_v5() {
     case "${EMQX_CDK_DB_BACKEND_ROLE}" in
       core)
         cat > /etc/emqx/cluster-override.conf <<EOF
-cluster {
-  db_backend = "rlog"
-  rlog {
-    role = "core"
-  }
+db {
+  backend = "rlog"
+  role = "core"
 }
 EOF
         ;;
 
       replicant)
         cat > /etc/emqx/cluster-override.conf <<EOF
-cluster {
-  db_backend = "rlog"
-  rlog {
-    role = "replicant"
-    core_nodes = "${EMQX_CDK_CORE_NODES}"
-  }
+db {
+  backend = "rlog"
+  role = "replicant"
+  core_nodes = "${EMQX_CDK_CORE_NODES}"
 }
 EOF
         ;;
@@ -62,13 +58,6 @@ config_overrides_v5() {
   cat <<EOF >> /etc/emqx/emqx.conf
 node {
   name: $nodename
-
-  ## Erlang Process Limit
-  process_limit: 2097152
-
-  ## Sets the maximum number of simultaneously existing ports for this
-  ## system
-  max_ports: 1048576
 }
 
 cluster {
