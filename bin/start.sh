@@ -1,5 +1,7 @@
-#/bin/bash
-set -eox pipefail
+#!/bin/bash
+set -euo pipefail
+
+set -x
 
 [ -z ${CDK_EMQX_CLUSTERNAME+x} ] &&
     CDK_EMQX_CLUSTERNAME=$(git config --get user.name | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]//g')
