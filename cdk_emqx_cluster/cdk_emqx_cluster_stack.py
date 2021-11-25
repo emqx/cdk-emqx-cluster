@@ -17,8 +17,10 @@ from aws_cdk import (core as cdk, aws_ec2 as ec2, aws_ecs as ecs,
                      aws_iam as iam,
                      aws_ssm as ssm,
                      aws_s3 as s3,
+                     aws_efs as efs,
+                     aws_msk as msk,
                      aws_ecs_patterns as ecs_patterns)
-from aws_cdk.core import Duration, CfnParameter
+from aws_cdk.core import Duration, CfnParameter, RemovalPolicy
 from base64 import b64encode
 import sys
 import logging
@@ -121,6 +123,7 @@ class CdkEmqxClusterStack(cdk.Stack):
     def __init__(self, scope: cdk.Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
         self.exp1 = None
+        self.kafka = None
 
         # The code that defines your stack goes here
         if self.node.try_get_context("tags"):
@@ -151,6 +154,7 @@ class CdkEmqxClusterStack(cdk.Stack):
         self.setup_bastion()
 
         # Create Application Services
+        self.setup_kafka()
         self.setup_emqx(self.numEmqx)
         self.setup_etcd()
         self.setup_loadgen(self.numLg)
@@ -554,7 +558,7 @@ class CdkEmqxClusterStack(cdk.Stack):
 
     def setup_vpc(self):
         vpc = ec2.Vpc(self, "VPC EMQX %s" % self.cluster_name,
-                      max_azs=1,
+                      max_azs=2 if self.kafka_ebs_vol_size else 1,
                       cidr="10.10.0.0/16",
                       # configuration will create 3 groups in 2 AZs = 6 subnets.
                       subnet_configuration=[
@@ -655,6 +659,7 @@ class CdkEmqxClusterStack(cdk.Stack):
                                       vpc=self.vpc,
                                       internet_facing=False,
                                       cross_zone_enabled=True,
+                                      vpc_subnets=ec2.SubnetSelection(one_per_az=True),
                                       load_balancer_name="emqx-nlb-%s" % self.cluster_name)
         r53.ARecord(self, "AliasRecord",
                     zone=self.int_zone,
@@ -706,6 +711,9 @@ class CdkEmqxClusterStack(cdk.Stack):
         # Extra EBS vol size for EMQX DATA per EMQX Instance
         self.emqx_ebs_vol_size = self.node.try_get_context('emqx_ebs')
 
+        # Kafka
+        self.kafka_ebs_vol_size = self.node.try_get_context('kafka_ebs') or None
+
         # EMQX source
         self.emqx_src_cmd = self.node.try_get_context(
             'emqx_src') or "git clone https://github.com/emqx/emqx"
@@ -716,10 +724,18 @@ class CdkEmqxClusterStack(cdk.Stack):
             logging.warning("💾  with extra vol %G  for EMQX" %
                             int(self.emqx_ebs_vol_size))
 
+        if self.kafka_ebs_vol_size:
+            logging.warning("💾  with extra vol %G  for Kafka, Kafka will be deployed" %
+                            int(self.kafka_ebs_vol_size))
+
+
         logging.warning(f"💽  DB backend: {self.dbBackend}")
         if self.dbBackend == "rlog":
             numReplicants = self.numEmqx - self.numCoreNodes
-            logging.warning(f"💽    with {numReplicants} replicant and {self.numCoreNodes} core node(s)")
+            logging.warning(
+                f"💽    with {numReplicants} replicant and {self.numCoreNodes} core node(s)")
+
+
 
     @staticmethod
     def attach_ssm_policy(role):
@@ -732,20 +748,51 @@ class CdkEmqxClusterStack(cdk.Stack):
         if not policy:
             # https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-arn-format.html
             resource = core.Arn.format(core.ArnComponents(service='s3',
-                                                          account='', # acc should not be set for s3 arn
+                                                          account='',  # acc should not be set for s3 arn
                                                           region='',  # region should not be set for s3 arn
                                                           resource=self.s3_bucket_name,  # bucket name
                                                           resource_name=self.cluster_name+'*'
                                                           ), self)
 
             statement_all = iam.PolicyStatement(actions=['s3:*'],
-                                            effect=iam.Effect.ALLOW,
-                                            resources=[resource])
+                                                effect=iam.Effect.ALLOW,
+                                                resources=[resource])
             statement_list = iam.PolicyStatement(actions=['s3:List*'],
-                                            effect=iam.Effect.ALLOW,
-                                            resources=['*'])
+                                                 effect=iam.Effect.ALLOW,
+                                                 resources=['*'])
 
-            policy = iam.Policy(self, id=id, statements=[statement_all, statement_list])
+            policy = iam.Policy(self, id=id, statements=[
+                                statement_all, statement_list])
             self.s3_bucket_policy = policy
 
         role.attach_inline_policy(policy)
+
+    def setup_kafka(self):
+        if not self.kafka_ebs_vol_size:
+            self.kafka=None
+            return
+
+        # Kafka Internal Access
+        kafka_sg = ec2.SecurityGroup(self, id='sg_kafka', vpc=self.vpc)
+        kafka_sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.all_traffic())
+        kafka_sg.add_ingress_rule(ec2.Peer.any_ipv6(), ec2.Port.all_traffic())
+
+        # Kafka and EMQX Access
+        self.sg.add_ingress_rule(ec2.Peer.any_ipv4(),
+                            ec2.Port.tcp(9092), 'kafka-plain-int')
+        self.sg.add_ingress_rule(ec2.Peer.any_ipv4(),
+                            ec2.Port.tcp(9094), 'kafka-tls-int')
+        self.sg.add_ingress_rule(ec2.Peer.any_ipv4(),
+                            ec2.Port.tcp(9096), 'kafka-sasl-int')
+        self.sg.add_ingress_rule(ec2.Peer.any_ipv4(),
+                            ec2.Port.tcp(2181), 'zk-plain-int')
+        self.sg.add_ingress_rule(ec2.Peer.any_ipv4(),
+                            ec2.Port.tcp(2181), 'zk-plain-int')
+
+        self.kafka = msk.Cluster(self, id='kafka', cluster_name=self.cluster_name+'-kafka',
+                kafka_version=msk.KafkaVersion.V2_6_0,
+                ebs_storage_info=msk.EbsStorageInfo(volume_size=10),
+                vpc=self.vpc, number_of_broker_nodes=1,
+                vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE, one_per_az=True),
+                removal_policy=core.RemovalPolicy.DESTROY, #security_groups=[kafka_sg]
+                )
