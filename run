@@ -3,9 +3,9 @@ set -euo pipefail
 
 if [ "${DEBUG:-}" = 1 ]; then
     set -x
-    docker build -t cdk .
+    docker build -t mycdk .
 else
-    docker build -t cdk . >/dev/null
+    docker build -t mycdk . >/dev/null
 fi
 
 [ -z ${CDK_EMQX_CLUSTERNAME+x} ] &&
@@ -15,4 +15,4 @@ docker run -e CDK_EMQX_CLUSTERNAME=${CDK_EMQX_CLUSTERNAME} --rm -it \
        -v ~/.aws:/root/.aws \
        -v $(pwd):/opt/ \
        -w /opt \
-       contino/aws-cdk cdk $@
+       mycdk cdk "$@"
