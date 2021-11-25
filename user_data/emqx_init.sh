@@ -154,7 +154,7 @@ maybe_mount_data
 maybe_install_from_deb
 maybe_install_from_src
 
-EMQX_VERSION=$(dpkg -s emqx | grep Version | awk '{print $2}')
+EMQX_VERSION=$(dpkg -s emqx emqx-ee | grep Version | awk '{print $2}')
 
 case "${EMQX_VERSION}" in
   4*)
