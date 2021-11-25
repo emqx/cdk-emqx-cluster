@@ -31,6 +31,8 @@ setuptools.setup(
         "aws-cdk.aws-iam==1.130.0",
         "aws-cdk.aws-ssm==1.130.0",
         "aws-cdk.aws-s3==1.130.0",
+        "aws-cdk.aws-efs==1.130.0",
+        "aws-cdk.aws-msk==1.130.0",
         "pyyaml"
     ],
 
