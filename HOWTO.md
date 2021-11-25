@@ -69,17 +69,14 @@ docker run --rm -it -v ~/.aws:/root/.aws -v $(pwd):/opt/app contino/aws-cdk bash
 
 ```
 
-## In docker prepare python venv
+## Run cdk in docker
+
+execute `./run` with all the cdk args passed to it.
+e.g.
 
 ```bash
-npm install -g aws-cdk
-python3 -m venv .venv
-source .venv/bin/activate
-pip3 install -r requirements.txt
-
+./run synth CdkEmqxClusterStack
 ```
-
-Or you just run `./bin/start.sh`
 
 # Deploy
 ## Dry run create cluster named william
