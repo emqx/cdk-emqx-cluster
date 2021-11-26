@@ -90,11 +90,23 @@ docker run --rm -it -v ~/.aws:/root/.aws -v $(pwd):/opt/app contino/aws-cdk bash
 
 ## Run cdk in docker
 
-execute `./run` with all the cdk args passed to it.
+execute `./run` to run cdk inside the container with args passed to it.
 e.g.
 
 ```bash
-./run synth CdkEmqxClusterStack
+env CDK_EMQX_CLUSTERNAME=william ./run cdk synth CdkEmqxClusterStack
+```
+
+To have Docker debug output, use `DEBUG=1`:
+
+```bash
+env DEBUG=1 ./run cdk synth CdkEmqxClusterStack
+```
+
+If you want to enter bash inside the container for debugging purposes, just use:
+
+```bash
+./run bash
 ```
 
 # Deploy
