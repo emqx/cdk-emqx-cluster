@@ -676,7 +676,8 @@ class CdkEmqxClusterStack(cdk.Stack):
         This is a SSH proxy/middleman sit between Internet and VPC.
         """
         sg_bastion = ec2.SecurityGroup(self, id='sg_bastion', vpc=self.vpc)
-        sg_bastion.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(22), 'SSH from anywhere')
+        sg_bastion.add_ingress_rule(
+            ec2.Peer.any_ipv4(), ec2.Port.tcp(22), 'SSH from anywhere')
         bastion = ec2.BastionHostLinux(self, "Bastion",
                                        vpc=self.vpc,
                                        subnet_selection=ec2.SubnetSelection(
@@ -832,29 +833,16 @@ class CdkEmqxClusterStack(cdk.Stack):
         # Kafka Internal Access
         kafka_sg = ec2.SecurityGroup(self, id='sg_kafka', vpc=self.vpc)
         kafka_sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.all_traffic())
-        kafka_sg.add_ingress_rule(ec2.Peer.any_ipv6(), ec2.Port.all_traffic())
-
-        # Kafka and EMQX Access
-        self.sg.add_ingress_rule(ec2.Peer.any_ipv4(),
-                                 ec2.Port.tcp(9092), 'kafka-plain-int')
-        self.sg.add_ingress_rule(ec2.Peer.any_ipv4(),
-                                 ec2.Port.tcp(9094), 'kafka-tls-int')
-        self.sg.add_ingress_rule(ec2.Peer.any_ipv4(),
-                                 ec2.Port.tcp(9096), 'kafka-sasl-int')
-        self.sg.add_ingress_rule(ec2.Peer.any_ipv4(),
-                                 ec2.Port.tcp(2181), 'zk-plain-int')
-        self.sg.add_ingress_rule(ec2.Peer.any_ipv4(),
-                                 ec2.Port.tcp(2181), 'zk-plain-int')
-
+        kafka_sg.add_ingress_rule(self.sg, ec2.Port.all_traffic())
         self.kafka = msk.Cluster(self, id='kafka', cluster_name=self.cluster_name+'-kafka',
                                  kafka_version=msk.KafkaVersion.V2_6_0,
                                  ebs_storage_info=msk.EbsStorageInfo(
-                                     volume_size=10),
+                                     volume_size=int(self.kafka_ebs_vol_size)),
                                  vpc=self.vpc, number_of_broker_nodes=1,
                                  vpc_subnets=ec2.SubnetSelection(
                                      subnet_type=ec2.SubnetType.PRIVATE, one_per_az=True),
-                                 # security_groups=[kafka_sg]
                                  removal_policy=core.RemovalPolicy.DESTROY,
+                                 security_groups=[kafka_sg]
                                  )
 
     def setup_efs(self):
