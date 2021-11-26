@@ -42,6 +42,12 @@ lg_n
 # default: null
 emqx_ebs
 
+# Kafka Volume size (in GB), set a vaule to enable kafka in AWS MSK
+# via bootstrap brokers:
+#   TLS: 9094
+# default: null, (no kafka)
+kafka_ebs
+
 # Specify how to fetch emqx package
 # either by downloading deb
 # emqx_src="wget https://www.emqx.io/downloads/broker/v4.3.0/emqx-ubuntu20.04-4.3.0-amd64.deb"
