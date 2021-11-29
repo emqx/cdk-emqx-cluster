@@ -18,7 +18,7 @@ die() {
 }
 
 # experiment
-expid=$(aws fis list-experiment-templates | jq -r --arg cluster $cluster --arg name $fault '.experimentTemplates[] |
+expid=$(aws fis list-experiment-templates | jq -r --arg cluster "$cluster" --arg name "$fault" '.experimentTemplates[] |
     select(getpath(["tags","cluster"]) == $cluster and getpath(["tags","fault_name"]) == $name) | .id')
 
 if [ -z "$expid" ]; then
