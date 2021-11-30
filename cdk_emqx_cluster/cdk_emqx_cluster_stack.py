@@ -775,6 +775,9 @@ class CdkEmqxClusterStack(cdk.Stack):
         self.kafka_ebs_vol_size = self.node.try_get_context(
             'kafka_ebs') or None
 
+        # Preserve EFS
+        self.retain_efs = bool(self.node.try_get_context('retain_efs')) or False
+
         # EMQX source
         self.emqx_src_cmd = self.node.try_get_context(
             'emqx_src') or "git clone https://github.com/emqx/emqx"
@@ -850,10 +853,16 @@ class CdkEmqxClusterStack(cdk.Stack):
         self.sg_efs_mt = ec2.SecurityGroup(self, "sg_efs_mt", vpc=self.vpc)
         self.sg_efs_mt.add_ingress_rule(
             peer=self.sg, connection=ec2.Port.all_traffic())
-        # File System
-        self.shared_efs = efs.FileSystem(self, id='shared-data'+self.cluster_name, vpc=self.vpc,
-                                         removal_policy=core.RemovalPolicy.DESTROY,
-                                         lifecycle_policy=efs.LifecyclePolicy.AFTER_14_DAYS,
-                                         performance_mode=efs.PerformanceMode.GENERAL_PURPOSE,
-                                         security_group=self.sg_efs_mt
-                                         )
+
+        fsid = 'shared-data' + self.cluster_name
+
+        if self.retain_efs:
+            remove_policy=core.RemovalPolicy.RETAIN
+        else:
+            remove_policy=core.RemovalPolicy.DESTROY
+        self.shared_efs = efs.FileSystem(self, id=fsid, vpc=self.vpc,
+                                        removal_policy=remove_policy,
+                                        lifecycle_policy=efs.LifecyclePolicy.AFTER_14_DAYS,
+                                        performance_mode=efs.PerformanceMode.GENERAL_PURPOSE,
+                                        security_group=self.sg_efs_mt
+                                        )
