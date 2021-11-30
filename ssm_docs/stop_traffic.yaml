@@ -1,0 +1,32 @@
+description: |-
+  ### Document name - stop_traffic
+
+  ## What does this document do?
+  It stops traffic from loadgen
+
+  ## Dependencies installed by this SSM Document
+  N/A
+
+  ## Input Parameters
+  None.
+
+  ## Output Parameters
+  None.
+
+schemaVersion: '2.2'
+
+mainSteps:
+- action: aws:runShellScript
+  name: StopLoadgen
+  precondition:
+    StringEquals:
+    - platformType
+    - Linux
+  description: |
+    Kill loadgen beam process
+  inputs:
+    onFailure: exit
+    runCommand:
+    - |
+      #!/bin/bash
+      pkill beam

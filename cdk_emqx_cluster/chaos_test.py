@@ -77,7 +77,7 @@ class CdkChaosTest(cdk.Stack):
             # * Kill emqx Process
             SsmDocExperiment(self, id='emqx-kill-proc', name='AWSFIS-Run-Kill-Process',
                              desc='EMQX: Kill emqx Process for 2mins',
-                             doc_parms={'ProcessName': 'run_erl', 'Signal': 'SIGKILL'}),
+                             doc_parms={'ProcessName': 'beam.smp', 'Signal': 'SIGKILL'}),
             # * Mem Stress
             SsmDocExperiment(self, id='emqx-high-mem-80', name='AWSFIS-Run-Memory-Stress',
                              desc='EMQX: Mem: 80% for 2mins',
@@ -104,7 +104,9 @@ class CdkChaosTest(cdk.Stack):
             ControlCmd(self, 'start_traffic',
                        'start_traffic.yaml', service='loadgen'),
             ControlCmd(self, 'collect_logs',
-                       'collect_logs.yaml', service='emqx')
+                       'collect_logs.yaml', service='emqx'),
+            ControlCmd(self, 'stop_traffic',
+                       'stop_traffic.yaml', service='loadgen')
         ]
 
 

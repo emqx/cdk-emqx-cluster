@@ -19,6 +19,8 @@ cluster=$1
 # scripts are under cdk_emqx_cluster/ssm_docs/
 command=$2
 
+shift 2;
+
 die() {
     echo $1
     exit 1;
@@ -34,25 +36,33 @@ if [[ "$doc_name" == "null" || ! $? ]]; then
 fi
 
 case $command in
+    "stop_traffic")
+        aws ssm send-command --document-name "$doc_name" \
+            --targets "[{\"Key\":\"tag:cluster\",\"Values\":[\"$cluster\"]},{\"Key\":\"tag:service\",\"Values\":[\"loadgen\"]}]" \
+            --timeout-seconds 60 --max-concurrency "30" --max-errors "0"
+        ;;
+
     "start_traffic")
         # supply command parameters and targets
         LB="lb.int.$cluster"
         aws ssm send-command --document-name "$doc_name" \
-            --parameters "{\"Host\": [\"$LB\"], \"Command\":[\"sub\"],\"Prefix\":[\"cdk\"],\"Topic\":[\"topic_a\"],\"Clients\":[\"200000\"],\"Interval\":[\"50\"]}" \
+            --parameters "{\"Host\": [\"$LB\"], \"Command\":[\"sub\"],\"Prefix\":[\"cdk\"],\"Topic\":[\"topic_a\"],\"Clients\":[\"200000\"],\"Interval\":[\"200\"]}" \
             --targets "[{\"Key\":\"tag:cluster\",\"Values\":[\"$cluster\"]},{\"Key\":\"tag:service\",\"Values\":[\"loadgen\"]}]" \
             --timeout-seconds 60 --max-concurrency "30" --max-errors "0"
 
         aws ssm send-command --document-name "$doc_name" \
-            --parameters "{\"Host\": [\"$LB\"], \"Command\":[\"pub\"],\"Prefix\":[\"cdk\"],\"Topic\":[\"topic_a\"],\"Clients\":[\"200000\"],\"Interval\":[\"50\"]}" \
+            --parameters "{\"Host\": [\"$LB\"], \"Command\":[\"pub\"],\"Prefix\":[\"cdk\"],\"Topic\":[\"topic_a\"],\"Clients\":[\"200000\"],\"Interval\":[\"200\"], \"PubInterval\":[\"200\"]}" \
             --targets "[{\"Key\":\"tag:cluster\",\"Values\":[\"$cluster\"]},{\"Key\":\"tag:service\",\"Values\":[\"loadgen\"]}]" \
             --timeout-seconds 60 --max-concurrency "30" --max-errors "0"
         ;;
+
     "collect_logs")
         aws ssm send-command --document-name "$doc_name" \
             --parameters "{\"Bucket\":[\"emqx-cdk-cluster\"],\"Path\":[\"$cluster\"]}" \
             --targets "[{\"Key\":\"tag:cluster\",\"Values\":[\"$cluster\"]},{\"Key\":\"tag:service\",\"Values\":[\"emqx\"]}]" \
             --timeout-seconds 600 --max-concurrency "50" --max-errors "0" --region eu-west-1
         ;;
+
     *)
         die "unknown command $command"
         ;;
