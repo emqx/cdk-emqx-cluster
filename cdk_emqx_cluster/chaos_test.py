@@ -86,7 +86,7 @@ class CdkChaosTest(cdk.Stack):
             # * Network Blackhole
             SsmDocExperiment(self, id='emqx-distport-blackhole', name='AWSFIS-Run-Network-Blackhole-Port',
                              desc='EMQX: Drop distport inbond traffic for 2mins',
-                             doc_parms={'DurationSeconds': '120', 'Port': '4369', 'Protocol' : 'tcp', 'TrafficType':'ingress'}),
+                             doc_parms={'DurationSeconds': '120', 'Port': '4370', 'Protocol' : 'tcp', 'TrafficType':'ingress'}),
 
             # * Network Latency
             SsmDocExperiment(self, id='emqx-latency-200ms', name='AWSFIS-Run-Network-Latency',
