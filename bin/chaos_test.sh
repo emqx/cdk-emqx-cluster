@@ -7,6 +7,7 @@
 set -e
 
 BASEDIR=$(dirname "$0")
+source $BASEDIR/fis_lib.sh
 export AWS_PAGER=""
 
 die() {
@@ -14,15 +15,18 @@ die() {
     exit 1
 }
 
-# emqx node stop
-tc_1() {
+
+gen_tc() {
     cluster=$1
+    fault=$2
     # step 1: start traffic
     $BASEDIR/send_cmd.sh "$cluster" "start_traffic" || die "stopped: start traffic failed"
     # step 2: sleep for 5mins for steady state
     sleep 300;
-    # step 3: send command to shutdown emqx node for 1 min.
-    $BASEDIR/inject_fault.sh "$cluster" "emqx-node-shutdown" || die "stopped: fault injection failed"
+    # step 3: inject faults
+    jobid=$($BASEDIR/inject_fault.sh "$cluster" "$fault" | jq -r '.experiment.id');
+    wait_fis_job_finish "$jobid"
+
     # step 4: wait for traffic to back to normal
     sleep 300;
     # step 5: collect logs
@@ -35,4 +39,16 @@ tc_1() {
 cluster="$1"
 tc_name="$2"
 
-$tc_name $cluster
+case $tc_name in
+     all)
+         for fault in ${ALL_FIS_FAULTS[*]};
+         do
+             gen_tc "$cluster" "$fault";
+         done
+         ;;
+     list)
+         echo "Available faults: ${ALL_FIS_FAULTS[*]}"
+         ;;
+     *)
+         $tc_name $cluster
+esac

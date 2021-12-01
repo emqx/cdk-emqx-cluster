@@ -2,7 +2,7 @@ description: |-
   ### Document name - start_traffic
 
   ## What does this document do?
-  It start background traffic aginst emqx
+  It starts loadgens to send traffic to Target
 
   ## Dependencies installed by this SSM Document
   N/A
@@ -31,17 +31,23 @@ parameters:
     default: 'topic_a'
   Clients:
     type: String
-    description: Number of Clients (200)
-    default: '200'
+    description: Number of Clients (200000)
+    default: '200000'
   Prefix:
     type: String
     description: Client Id Prefixs ('%d')
     default: 'cdk'
   Interval:
     type: String
-    description: conn interval in ms. (10)
+    description: conn interval in ms. (100)
     allowedPattern: ^[0-9]+$
-    default: '10'
+    default: '100'
+  PubInterval:
+    type: String
+    description: pub interval in ms. (1000)
+    allowedPattern: ^[0-9]+$
+    default: '1000'
+
 
 mainSteps:
 - action: aws:runShellScript
@@ -57,10 +63,14 @@ mainSteps:
     runCommand:
     - |
       #!/bin/bash
-      ulimit -n 1000000
+      ulimit -n 8000000
       cd /root/emqtt-bench
       ipaddrs=$(ip addr |grep -o '192.*/32' | sed 's#/32##g' | paste -s -d , -)
-      nohup _build/default/bin/emqtt_bench "{{ Command }}" -h "{{ Host }}" -t "{{ Topic }}" -c "{{ Clients }}" --prefix "{{ Prefix }}"  -i {{ Interval }} --ifaddr $ipaddrs \
+
+      if [[ "{{ Command }}" == "pub" ]]; then
+      extra_args=( -I {{ PubInterval }} )
+      fi
+      nohup _build/default/bin/emqtt_bench "{{ Command }}" -h "{{ Host }}" -t "{{ Topic }}" -c "{{ Clients }}" --prefix "{{ Prefix }}"  -i {{ Interval }} ${extra_args[*]} --ifaddr $ipaddrs \
         > run.log &
 
 

@@ -22,7 +22,11 @@ import json
 
 
 class CdkChaosTest(cdk.Stack):
-
+    """
+    refs:
+    https://docs.aws.amazon.com/fis/latest/userguide/fis-actions-reference.html
+    https://docs.aws.amazon.com/fis/latest/userguide/actions-ssm-agent.html
+    """
     def __init__(self, scope: cdk.Construct, construct_id: str, cluster_name: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
         self.cluster_name = cluster_name
@@ -30,6 +34,8 @@ class CdkChaosTest(cdk.Stack):
         self.role_arn = role.role_arn
         self.exps = [
             # note, ec2 instances must be tagged with 'chaos_ready' to get tested
+            #
+            # * NODE SHUTDOWN
             CdkExperiment(self, id='emqx-node-shutdown', name='emqx-node-shutdown',
                           description='emqx node shutdown',
 
@@ -52,7 +58,45 @@ class CdkChaosTest(cdk.Stack):
                               )
 
                           }
-                          )
+                          ),
+            # * HIGH CPU LOAD 80%
+            SsmDocExperiment(self, id='emqx-high-cpu-80', name='AWSFIS-Run-CPU-Stress',
+                             desc='EMQX: CPU Stress 80% for 2mins',
+                             doc_parms={'DurationSeconds': '120', 'LoadPercent': '80'}),
+
+            # * HIGH CPU LOAD 100%
+            SsmDocExperiment(self, id='emqx-high-cpu-100', name='AWSFIS-Run-CPU-Stress',
+                             desc='EMQX: CPU Stress 100% for 2mins',
+                             doc_parms={'DurationSeconds': '120', 'LoadPercent': '100'}),
+
+            # * IO Stress
+            SsmDocExperiment(self, id='emqx-high-io-80', name='AWSFIS-Run-IO-Stress',
+                             desc='EMQX: IOStress 80% for 2mins',
+                             doc_parms={'DurationSeconds': '120', 'Percent': '80'}),
+
+            # * Kill emqx Process
+            SsmDocExperiment(self, id='emqx-kill-proc', name='AWSFIS-Run-Kill-Process',
+                             desc='EMQX: Kill emqx Process for 2mins',
+                             doc_parms={'ProcessName': 'beam.smp', 'Signal': 'SIGKILL'}),
+            # * Mem Stress
+            SsmDocExperiment(self, id='emqx-high-mem-80', name='AWSFIS-Run-Memory-Stress',
+                             desc='EMQX: Mem: 80% for 2mins',
+                             doc_parms={'DurationSeconds': '120', 'Percent': '80'}),
+
+            # * Network Blackhole
+            SsmDocExperiment(self, id='emqx-distport-blackhole', name='AWSFIS-Run-Network-Blackhole-Port',
+                             desc='EMQX: Drop distport inbond traffic for 2mins',
+                             doc_parms={'DurationSeconds': '120', 'Port': '4370', 'Protocol' : 'tcp', 'TrafficType':'ingress'}),
+
+            # * Network Latency
+            SsmDocExperiment(self, id='emqx-latency-200ms', name='AWSFIS-Run-Network-Latency',
+                             desc='EMQX: NET Egress latency 200ms ',
+                             doc_parms={'DurationSeconds': '120', 'DelayMilliseconds': '200', 'Interface':'ens5'}),
+
+            # * Packet Loss
+            SsmDocExperiment(self, id='emqx-packet-loss-10', name='AWSFIS-Run-Network-Packet-Loss',
+                             desc='EMQX: NET, 10% egress Packet Lost for 2mins',
+                             doc_parms={'DurationSeconds': '120', 'LossPercent': '10', 'Interface':'ens5'}), # ubuntu nif name
 
         ]
 
@@ -60,7 +104,9 @@ class CdkChaosTest(cdk.Stack):
             ControlCmd(self, 'start_traffic',
                        'start_traffic.yaml', service='loadgen'),
             ControlCmd(self, 'collect_logs',
-                       'collect_logs.yaml', service='emqx')
+                       'collect_logs.yaml', service='emqx'),
+            ControlCmd(self, 'stop_traffic',
+                       'stop_traffic.yaml', service='loadgen')
         ]
 
 
@@ -92,6 +138,40 @@ class CdkExperiment(fis.CfnExperimentTemplate):
                                'fault_name': name},
                          role_arn=scope.role_arn,
                          **kwargs)
+
+
+class SsmDocExperiment(CdkExperiment):
+    """ use 'aws ssm list-documents' to find all the available docs (AWS provides)"""
+    def __init__(self, scope: cdk.Construct, id: str, name: str, doc_parms : dict, desc:str) -> None:
+        doc_arn = core.Arn.format(core.ArnComponents(service='ssm',
+                                                     resource='document',
+                                                     account='',
+                                                     resource_name=name
+                                                     ), scope)
+        super().__init__(scope, id=id, name=id,
+                          description=desc,
+                          # targets for faults injections, we pick only one
+                          targets={'targets-emqx': fis.CfnExperimentTemplate.ExperimentTemplateTargetProperty(
+                              resource_type='aws:ec2:instance',
+                              selection_mode='COUNT(1)',
+                              resource_tags={'chaos_ready': 'true', 'cluster': scope.cluster_name})
+                          },
+
+                          # actions for faults injections
+                          actions={
+                              'action-1': fis.CfnExperimentTemplate.ExperimentTemplateActionProperty(
+                                  action_id='aws:ssm:send-command',
+
+                                  parameters={ 'documentArn': doc_arn,
+                                               'documentParameters': json.dumps(doc_parms),
+                                               'duration' : 'PT2M'
+                                              },
+                                  # reference to targets
+                                  targets={
+                                      'Instances': 'targets-emqx'},
+                              )
+                          }
+                          )
 
 
 class IamRoleFis(iam.Role):
