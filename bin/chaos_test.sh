@@ -24,7 +24,9 @@ gen_tc() {
     # step 2: sleep for 5mins for steady state
     sleep 300;
     # step 3: inject faults
-    $BASEDIR/inject_fault.sh "$cluster" "$fault" || die "stopped: fault injection failed"
+    jobid=$($BASEDIR/inject_fault.sh "$cluster" "$fault" | jq -r '.experiment.id');
+    wait_fis_job_finish "$jobid"
+
     # step 4: wait for traffic to back to normal
     sleep 300;
     # step 5: collect logs
