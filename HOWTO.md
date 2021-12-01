@@ -212,5 +212,9 @@ For some more relevant performance tests, you can use larger instances. For a tw
 ```bash
 CDK_EMQX_CLUSTERNAME=william cdk deploy -c emqx_src="git clone -b YOUR_BRANCH https://github.com/emqx/emqx" -c emqx_n=2 -c emqx_ins_type="m5.2xlarge" -c loadgen_ins_type="m5n.xlarge" -c emqx_eb=20
 
+
+## Test data bridge to Kafka (emqx-ee) 
+CDK_EMQX_CLUSTERNAME=william-kafka cdk deploy --all  -c emqx_n=1 -c lg_n=2  -c emqx_ins_type="m5.4xlarge" -c loadgen_ins_type="m5n.4xlarge"  -c emqx_src="wget https://www.emqx.com/en/downloads/enterprise/4.3.5/emqx-ee-ubuntu20.04-4.3.5-amd64.deb" -c kafka_ebs=10
+
 ```
 The `emqx_ebs` is needed since these instances do not have storage by default.
