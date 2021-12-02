@@ -178,9 +178,10 @@ class CdkEmqxClusterStack(cdk.Stack):
                        value=self.bastion.instance_public_ip)
         core.CfnOutput(self, "Hosts are", value='\n'.join(self.hosts))
         core.CfnOutput(self, "SSH Commands for Access",
-                       value=f"ssh -A -l ec2-user %s -L 8888:%s:80 -L 13000:%s:3000 -L 19090:%s:9090"
+                       value="ssh -A -l ec2-user %s -L 8888:%s:80 -L 13000:%s:3000 -L 19090:%s:9090"
                        % (self.bastion.instance_public_ip, self.mon_lb, self.mon_lb, self.mon_lb)
                        )
+        core.CfnOutput(self, 'EFS ID:', value=self.shared_efs.file_system_id)
         if self.exp1:
             core.CfnOutput(self, "Exp1:", value=self.exp1.ref)
 
@@ -776,7 +777,10 @@ class CdkEmqxClusterStack(cdk.Stack):
             'kafka_ebs') or None
 
         # Preserve EFS
-        self.retain_efs = bool(self.node.try_get_context('retain_efs')) or False
+        # set it to 'False' to create new tmp EFS that will be destoryed after cluster get destroyed.
+        # set it to 'True' to create new and the EFS will be preserved after cluster get destroyed.
+        # set it to FIS id (like 'fs-0c86dd7fcd8ca836c') to reuse the preserved EFS without create new one.
+        self.retain_efs = self.node.try_get_context('retain_efs') or False
 
         # EMQX source
         self.emqx_src_cmd = self.node.try_get_context(
@@ -856,13 +860,27 @@ class CdkEmqxClusterStack(cdk.Stack):
 
         fsid = 'shared-data' + self.cluster_name
 
-        if self.retain_efs:
-            remove_policy=core.RemovalPolicy.RETAIN
+        if self.retain_efs and self.retain_efs.startswith('fs-'):
+            # reuse existing EFS
+            fsid = self.retain_efs
+            self.shared_efs = efs.FileSystem.from_file_system_attributes(self, id=fsid, security_group=self.sg_efs_mt,
+                                                                        file_system_id=self.retain_efs)
+            ## we need to explicitly add the mount target
+            for net in self.vpc.private_subnets:
+                cfn_mount_target = efs.CfnMountTarget(self, 'monitoring-mountpoint',
+                                                    file_system_id=self.shared_efs.file_system_id,
+                                                    security_groups=[self.sg_efs_mt.security_group_id],
+                                                    subnet_id=net.subnet_id
+                                                    )
         else:
-            remove_policy=core.RemovalPolicy.DESTROY
-        self.shared_efs = efs.FileSystem(self, id=fsid, vpc=self.vpc,
-                                        removal_policy=remove_policy,
-                                        lifecycle_policy=efs.LifecyclePolicy.AFTER_14_DAYS,
-                                        performance_mode=efs.PerformanceMode.GENERAL_PURPOSE,
-                                        security_group=self.sg_efs_mt
-                                        )
+            # Create new one with RemovalPolicy flag
+            if bool(self.retain_efs):
+                remove_policy=core.RemovalPolicy.RETAIN
+            else:
+                remove_policy=core.RemovalPolicy.DESTROY
+            self.shared_efs = efs.FileSystem(self, id=fsid, vpc=self.vpc,
+                                            removal_policy=remove_policy,
+                                            lifecycle_policy=efs.LifecyclePolicy.AFTER_14_DAYS,
+                                            performance_mode=efs.PerformanceMode.GENERAL_PURPOSE,
+                                            security_group=self.sg_efs_mt
+                                            )
