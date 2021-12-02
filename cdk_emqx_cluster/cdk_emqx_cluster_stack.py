@@ -696,6 +696,8 @@ class CdkEmqxClusterStack(cdk.Stack):
             #!/bin/bash
             yum install -y tmux amazon-efs-utils
             echo "search int.%s" >> /etc/resolv.conf
+            sudo -u ec2-user echo 'HOST *' > ~ec2-user/.ssh/config
+            sudo -u ec2-user echo "USER ubuntu" >> ~ec2-user/.ssh/config
             mkdir -p /mnt/efs-data
             mount -t efs -o tls %s:/ /mnt/efs-data
             """ % (self.cluster_name, self.shared_efs.file_system_id)
@@ -842,7 +844,9 @@ class CdkEmqxClusterStack(cdk.Stack):
                                  vpc_subnets=ec2.SubnetSelection(
                                      subnet_type=ec2.SubnetType.PRIVATE, one_per_az=True),
                                  removal_policy=core.RemovalPolicy.DESTROY,
-                                 security_groups=[kafka_sg]
+                                 security_groups=[kafka_sg],
+                                 encryption_in_transit = msk.EncryptionInTransitConfig(
+                                     client_broker=msk.ClientBrokerEncryption.TLS_PLAINTEXT)
                                  )
 
     def setup_efs(self):
