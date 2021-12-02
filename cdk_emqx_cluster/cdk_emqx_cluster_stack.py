@@ -696,6 +696,8 @@ class CdkEmqxClusterStack(cdk.Stack):
             #!/bin/bash
             yum install -y tmux amazon-efs-utils
             echo "search int.%s" >> /etc/resolv.conf
+            sudo -u ec2-user echo 'HOST *' > ~ec2-user/.ssh/config
+            sudo -u ec2-user echo "USER ubuntu" >> ~ec2-user/.ssh/config
             mkdir -p /mnt/efs-data
             mount -t efs -o tls %s:/ /mnt/efs-data
             """ % (self.cluster_name, self.shared_efs.file_system_id)
