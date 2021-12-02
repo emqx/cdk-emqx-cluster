@@ -864,23 +864,26 @@ class CdkEmqxClusterStack(cdk.Stack):
             # reuse existing EFS
             fsid = self.retain_efs
             self.shared_efs = efs.FileSystem.from_file_system_attributes(self, id=fsid, security_group=self.sg_efs_mt,
-                                                                        file_system_id=self.retain_efs)
-            ## we need to explicitly add the mount target
+                                                                         file_system_id=self.retain_efs)
+            # we need to explicitly add the mount targets for all private subnets
             for net in self.vpc.private_subnets:
                 cfn_mount_target = efs.CfnMountTarget(self, 'monitoring-mountpoint',
-                                                    file_system_id=self.shared_efs.file_system_id,
-                                                    security_groups=[self.sg_efs_mt.security_group_id],
-                                                    subnet_id=net.subnet_id
-                                                    )
+                                                      file_system_id=self.shared_efs.file_system_id,
+                                                      security_groups=[
+                                                          self.sg_efs_mt.security_group_id],
+                                                      subnet_id=net.subnet_id
+                                                      )
         else:
             # Create new one with RemovalPolicy flag
             if bool(self.retain_efs):
-                remove_policy=core.RemovalPolicy.RETAIN
+                remove_policy = core.RemovalPolicy.RETAIN
             else:
-                remove_policy=core.RemovalPolicy.DESTROY
+                remove_policy = core.RemovalPolicy.DESTROY
             self.shared_efs = efs.FileSystem(self, id=fsid, vpc=self.vpc,
-                                            removal_policy=remove_policy,
-                                            lifecycle_policy=efs.LifecyclePolicy.AFTER_14_DAYS,
-                                            performance_mode=efs.PerformanceMode.GENERAL_PURPOSE,
-                                            security_group=self.sg_efs_mt
-                                            )
+                                             removal_policy=remove_policy,
+                                             lifecycle_policy=efs.LifecyclePolicy.AFTER_14_DAYS,
+                                             performance_mode=efs.PerformanceMode.GENERAL_PURPOSE,
+                                             security_group=self.sg_efs_mt,
+                                             file_system_tags=[efs.CfnFileSystem.ElasticFileSystemTagProperty(
+                                                 key="cluster", value=self.cluster_name)]
+                                             )
