@@ -58,7 +58,9 @@ kafka_ebs
 emqx_src
 
 # Retain shared data EFS after cluster destroy
-# Set it to True if you want to preserve metrics data between cluster destroy/deployment
+# Set it to 'False' to create new tmp EFS that will be removed together with the cluster
+# Set it to 'True' to create new and the EFS will be preserved after cluster destroy.
+# Set it to FIS id (like 'fs-0c86dd7fcd8ca836c') to reuse the Existing EFS without create new one.
 # default: False
 retain_efs
 
