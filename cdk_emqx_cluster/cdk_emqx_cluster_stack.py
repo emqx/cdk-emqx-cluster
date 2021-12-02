@@ -842,7 +842,9 @@ class CdkEmqxClusterStack(cdk.Stack):
                                  vpc_subnets=ec2.SubnetSelection(
                                      subnet_type=ec2.SubnetType.PRIVATE, one_per_az=True),
                                  removal_policy=core.RemovalPolicy.DESTROY,
-                                 security_groups=[kafka_sg]
+                                 security_groups=[kafka_sg],
+                                 encryption_in_transit = msk.EncryptionInTransitConfig(
+                                     client_broker=msk.ClientBrokerEncryption.TLS_PLAINTEXT)
                                  )
 
     def setup_efs(self):
