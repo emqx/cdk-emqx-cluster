@@ -56,6 +56,14 @@ kafka_ebs
 # emqx_src="git clone -b some_branch https://github.com/emqx/emqx"
 # default: "git clone https://github.com/emqx/emqx"
 emqx_src
+
+# Retain shared data EFS after cluster destroy
+# Set it to 'False' to create new tmp EFS that will be removed together with the cluster
+# Set it to 'True' to create new and the EFS will be preserved after cluster destroy.
+# Set it to FIS id (like 'fs-0c86dd7fcd8ca836c') to reuse the Existing EFS without create new one.
+# default: False
+retain_efs
+
 ```
 
 ## Make sure you have AWS credentials in ~/.aws/
@@ -210,7 +218,7 @@ CDK_EMQX_CLUSTERNAME=william cdk destroy CdkEmqxClusterStack
 
 For some more relevant performance tests, you can use larger instances. For a two node emqx cluster with one loadgen with a particular branch:
 ```bash
-CDK_EMQX_CLUSTERNAME=william cdk deploy -c emqx_src="git clone -b YOUR_BRANCH https://github.com/emqx/emqx" -c emqx_n=2 -c emqx_ins_type="m5.2xlarge" -c loadgen_ins_type="m5n.xlarge" -c emqx_eb=20
+CDK_EMQX_CLUSTERNAME=william cdk deploy --all -c emqx_src="git clone -b YOUR_BRANCH https://github.com/emqx/emqx" -c emqx_n=2 -c emqx_ins_type="m5.2xlarge" -c loadgen_ins_type="m5n.xlarge" -c emqx_eb=20 -c keep_efs=True
 
 
 ## Test data bridge to Kafka (emqx-ee) 
