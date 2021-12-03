@@ -126,6 +126,9 @@ rate_limit {
   conn_bytes_in = infinity
 }
 
+listeners.tcp.default {
+  max_connections = 1000000000
+}
 EOF
 }
 

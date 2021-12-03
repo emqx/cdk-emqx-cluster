@@ -1,15 +1,15 @@
 #!/bin/bash
 
 sudo bash -c 'echo "session required pam_limits.so" >> /etc/pam.d/common-session'
-sudo bash -c 'echo "*      soft    nofile      2000000"  >> /etc/security/limits.conf'
-sudo bash -c 'echo "*      hard    nofile      2000000"  >> /etc/security/limits.conf'
+sudo bash -c 'echo "*      soft    nofile      100000000"  >> /etc/security/limits.conf'
+sudo bash -c 'echo "*      hard    nofile      100000000"  >> /etc/security/limits.conf'
 
 echo "net.ipv4.tcp_tw_reuse=1" >>  /etc/sysctl.d/99-sysctl.conf
 echo "fs.nr_open=8000000" >>  /etc/sysctl.d/99-sysctl.conf
 echo 'net.ipv4.ip_local_port_range="1025 65534"' >>  /etc/sysctl.d/99-sysctl.conf
 echo 'net.ipv4.udp_mem="74583000 499445000 749166000"' >> /etc/sysctl.d/99-sysctl.conf
 
-sysctl -w fs.nr_open=8000000
+sysctl -w fs.nr_open=1000000000
 sysctl -w net.ipv4.tcp_tw_reuse=1
 sysctl -w net.ipv4.ip_local_port_range="1025 65534"
 sysctl -w net.ipv4.udp_mem="74583000 499445000 749166000"
