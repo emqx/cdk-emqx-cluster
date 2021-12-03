@@ -888,6 +888,4 @@ class CdkEmqxClusterStack(cdk.Stack):
                                              lifecycle_policy=efs.LifecyclePolicy.AFTER_14_DAYS,
                                              performance_mode=efs.PerformanceMode.GENERAL_PURPOSE,
                                              security_group=self.sg_efs_mt,
-                                             file_system_tags=[efs.CfnFileSystem.ElasticFileSystemTagProperty(
-                                                 key="cluster", value=self.cluster_name)]
                                              )
