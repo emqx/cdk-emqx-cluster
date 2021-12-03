@@ -210,7 +210,7 @@ class CdkEmqxClusterStack(cdk.Stack):
                 """\
                 cat << EOF > /root/emqtt-bench/run.sh
                 #!/bin/bash
-                ulimit -n 1000000
+                ulimit -n 80000000
                 cd /root/emqtt-bench
                 ipaddrs=\$(ip addr |grep -o '192.*/32' | sed 's#/32##g' | paste -s -d , -)
                 _build/default/bin/emqtt_bench sub -h %s -t "root/%%c/1/+/abc/#" -c 200000 --prefix "prefix%d" --ifaddr \$ipaddrs -i 5
@@ -222,7 +222,7 @@ class CdkEmqxClusterStack(cdk.Stack):
                 """\
                 cat << EOF > /root/emqtt-bench/with-ipaddrs.sh
                 #!/bin/bash
-                ulimit -n 1000000
+                ulimit -n 8000000
                 ipaddrs=\$(ip addr | grep -o '192.*/32' | sed 's#/32##g' | paste -s -d , -)
                 "\$@" --ifaddr \$ipaddrs
                 EOF
