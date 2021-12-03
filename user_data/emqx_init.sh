@@ -71,7 +71,7 @@ cluster {
 
 listeners.tcp.default {
   acceptors: 128
-  max_connections: 1024000
+  max_connections: infinity
 }
 
 rate_limit {
@@ -126,9 +126,6 @@ rate_limit {
   conn_bytes_in = infinity
 }
 
-listeners.tcp.default {
-  max_connections = 1000000000
-}
 EOF
 }
 
