@@ -224,6 +224,7 @@ CDK_EMQX_CLUSTERNAME=william cdk deploy --all -c emqx_src="git clone -b YOUR_BRA
 ```
 The `emqx_ebs` is needed since these instances do not have storage by default.
 
+
 ## Kafka data bridge test with emqx enterprise
 
 ```bash
