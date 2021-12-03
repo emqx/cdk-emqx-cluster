@@ -214,15 +214,27 @@ CDK_EMQX_CLUSTERNAME=william cdk destroy CdkEmqxClusterStack
 ```
 
 # Performance tests
+
+## Persistent session test
 *NOTE:* These are pretty large instances, so only use this for finding performance numbers.
 
 For some more relevant performance tests, you can use larger instances. For a two node emqx cluster with one loadgen with a particular branch:
 ```bash
 CDK_EMQX_CLUSTERNAME=william cdk deploy --all -c emqx_src="git clone -b YOUR_BRANCH https://github.com/emqx/emqx" -c emqx_n=2 -c emqx_ins_type="m5.2xlarge" -c loadgen_ins_type="m5n.xlarge" -c emqx_eb=20 -c keep_efs=True
-
-
-## Test data bridge to Kafka (emqx-ee) 
-CDK_EMQX_CLUSTERNAME=william-kafka cdk deploy --all  -c emqx_n=1 -c lg_n=2  -c emqx_ins_type="m5.4xlarge" -c loadgen_ins_type="m5n.4xlarge"  -c emqx_src="wget https://www.emqx.com/en/downloads/enterprise/4.3.5/emqx-ee-ubuntu20.04-4.3.5-amd64.deb" -c kafka_ebs=10
-
 ```
 The `emqx_ebs` is needed since these instances do not have storage by default.
+
+## Kafka data bridge test with emqx enterprise
+
+```bash
+CDK_EMQX_CLUSTERNAME=william-kafka cdk deploy --all  -c emqx_n=1 -c lg_n=2  -c emqx_ins_type="m5.4xlarge" -c loadgen_ins_type="m5n.4xlarge"  -c emqx_src="wget https://www.emqx.com/en/downloads/enterprise/4.3.5/emqx-ee-ubuntu20.04-4.3.5-amd64.deb" -c kafka_ebs=10
+```
+
+## MAX connections test with AWS bare metal
+
+Following setup could reach 5.5M connections per instance.
+
+```bash
+CDK_EMQX_CLUSTERNAME=william cdk deploy CdkEmqxClusterStack -c retain_efs='fs-0c86dd7fcd8ca836c'  -c emqx_n=1 -c lg_n=2 -c emqx_ins_type="c6g.metal" -c loadgen_ins_type="c6g.metal"
+
+```
