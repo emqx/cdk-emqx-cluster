@@ -25,10 +25,17 @@ apt update
 apt install -y esl-erlang=1:23.3.4.5-1
 
 ## Install node exporter
+case $(uname -m) in
+    aarch64)
+    arch=arm64
+    ;;
+    *)
+    arch=amd64
+esac
 useradd --no-create-home --shell /bin/false node_exporter
-wget https://github.com/prometheus/node_exporter/releases/download/v1.1.2/node_exporter-1.1.2.linux-amd64.tar.gz
-tar zxvf node_exporter-1.1.2.linux-amd64.tar.gz
-mv node_exporter-1.1.2.linux-amd64/node_exporter /usr/local/bin/
+wget https://github.com/prometheus/node_exporter/releases/download/v1.1.2/node_exporter-1.1.2.linux-$arch.tar.gz
+tar zxvf node_exporter-1.1.2.linux-$arch.tar.gz
+mv node_exporter-1.1.2.linux-$arch/node_exporter /usr/local/bin/
 chown node_exporter:node_exporter /usr/local/bin/node_exporter
 mkdir -p /prometheus/metrics
 chown node_exporter:node_exporter /prometheus/metrics
