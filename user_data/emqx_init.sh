@@ -55,6 +55,12 @@ EOF
 config_overrides_v5() {
   domain=$(dnsdomainname)
   nodename="emqx@`hostname -f`"
+  cat <<EOF >> /etc/emqx/vm.args
++P 16777216
++Q 16777216
++Muacnl 10
++hms 64
+EOF
   cat <<EOF >> /etc/emqx/emqx.conf
 node {
   name: $nodename
