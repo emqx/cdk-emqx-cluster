@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "session required pam_limits.so" >> /etc/pam.d/common-session
-echo "*      soft    nofile      100000000"  >> /etc/security/limits.conf
+echo "*      soft    nofile      10000000"  >> /etc/security/limits.conf
 echo "*      hard    nofile      100000000"  >> /etc/security/limits.conf
 
 
