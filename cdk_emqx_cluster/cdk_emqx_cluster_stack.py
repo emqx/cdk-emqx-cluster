@@ -33,6 +33,9 @@ linux_ami = ec2.GenericLinuxImage({
     "eu-west-1": "ami-08edbb0e85d6a0a07",  # ubuntu 20.04 latest
 })
 
+ubuntu_arm_ami = ec2.MachineImage.from_ssm_parameter('/aws/service/canonical/ubuntu/server/focal/stable/current/arm64/hvm/ebs-gp2/ami-id')
+ubuntu_x86_64_ami = ec2.MachineImage.from_ssm_parameter('/aws/service/canonical/ubuntu/server/focal/stable/current/amd64/hvm/ebs-gp2/ami-id')
+
 with open("./user_data/emqx_init.sh") as f:
     emqx_user_data = f.read()
 
@@ -60,7 +63,9 @@ def loadgen_setup_script(n: int, hostname: str) -> str:
         hostname {hostname}
         hostnamectl set-hostname {hostname}
 
-        for x in \$(seq 2 250); do ip addr add 192.168.{n}.\$x dev ens5; done
+        netdev=$(ip route show default | cut -d' ' -f5)
+        for x in \$(seq 2 250); do ip addr add 192.168.{n}.\$x dev \$netdev; done
+
 
         # emqtt bench escript will not start epmd, so we start it here
         epmd -daemon
@@ -205,10 +210,10 @@ class CdkEmqxClusterStack(cdk.Stack):
                 """\
                 cat << EOF > /root/emqtt-bench/run.sh
                 #!/bin/bash
-                ulimit -n 1000000
+                ulimit -n 80000000
                 cd /root/emqtt-bench
                 ipaddrs=\$(ip addr |grep -o '192.*/32' | sed 's#/32##g' | paste -s -d , -)
-                _build/default/bin/emqtt_bench sub -h %s -t "root/%%c/1/+/abc/#" -c 200000 --prefix "prefix%d" --ifaddr \$ipaddrs -i 5
+                _build/default/bin/emqtt_bench sub -h %s -t "root/%%c/1/+/abc/#" -c 4000000 --prefix "prefix%d" --ifaddr \$ipaddrs -i 5
                 EOF
                 chmod +x /root/emqtt-bench/run.sh
                 """ % (target, n)
@@ -217,7 +222,7 @@ class CdkEmqxClusterStack(cdk.Stack):
                 """\
                 cat << EOF > /root/emqtt-bench/with-ipaddrs.sh
                 #!/bin/bash
-                ulimit -n 1000000
+                ulimit -n 8000000
                 ipaddrs=\$(ip addr | grep -o '192.*/32' | sed 's#/32##g' | paste -s -d , -)
                 "\$@" --ifaddr \$ipaddrs
                 EOF
@@ -246,10 +251,16 @@ class CdkEmqxClusterStack(cdk.Stack):
                 ec2.MultipartBody.from_user_data(persistentConfig))
             multipartUserData.add_part(
                 ec2.MultipartBody.from_user_data(runscript))
+
+            if (self.loadgen_ins_type[2] == 'g'): #Graviton2
+                ami = ubuntu_arm_ami
+            else:
+                ami = ubuntu_x86_64_ami
+
             lg_vm = ec2.Instance(self, id=name,
                                  instance_type=ec2.InstanceType(
                                      instance_type_identifier=self.loadgen_ins_type),
-                                 machine_image=linux_ami,
+                                 machine_image=ami,
                                  user_data=multipartUserData,
                                  security_group=sg,
                                  key_name=key,
@@ -486,11 +497,17 @@ class CdkEmqxClusterStack(cdk.Stack):
             multipartUserData.add_part(
                 ec2.MultipartBody.from_user_data(user_data_nginx))
 
+
+            if (self.emqx_ins_type[2] == 'g'): #Graviton2
+                ami = ubuntu_arm_ami
+            else:
+                ami = ubuntu_x86_64_ami
+
             vm = ec2.Instance(self, id=name,
                               instance_type=ec2.InstanceType(
                                   instance_type_identifier=self.emqx_ins_type),
                               block_devices=blockdevs,
-                              machine_image=linux_ami,
+                              machine_image=ami,
                               user_data=multipartUserData,
                               security_group=sg,
                               key_name=key,
@@ -639,30 +656,8 @@ class CdkEmqxClusterStack(cdk.Stack):
         Setup security group, one for EC2 instances, because I am lazy.
         """
         sg = ec2.SecurityGroup(self, id='sg_int', vpc=self.vpc)
-        sg.add_ingress_rule(ec2.Peer.any_ipv4(),
-                            ec2.Port.tcp(22), 'SSH from anywhere')
-        sg.add_ingress_rule(ec2.Peer.any_ipv4(),
-                            ec2.Port.tcp(1883), 'MQTT TCP Port')
-        sg.add_ingress_rule(ec2.Peer.any_ipv4(),
-                            ec2.Port.tcp(8883), 'MQTT TCP/TLS Port')
-        sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(18883), 'NGINX')
-        sg.add_ingress_rule(ec2.Peer.any_ipv4(),
-                            ec2.Port.udp(14567), 'MQTT Quic Port')
-        sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(18083), 'WEB UI')
-        sg.add_ingress_rule(ec2.Peer.any_ipv4(),
-                            ec2.Port.tcp(4369), 'EMQX dist port 1')
-        sg.add_ingress_rule(ec2.Peer.any_ipv4(),
-                            ec2.Port.tcp(4370), 'EMQX dist port 2')
-        sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(
-            5369), 'EMQX gen_rpc dist port 1')
-        sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(
-            5370), 'EMQX gen_rpc dist port 2')
-        sg.add_ingress_rule(ec2.Peer.any_ipv4(),
-                            ec2.Port.tcp(8081), 'EMQX dashboard')
-        sg.add_ingress_rule(ec2.Peer.any_ipv4(),
-                            ec2.Port.tcp(2379), 'ETCD client port')
-        sg.add_ingress_rule(ec2.Peer.any_ipv4(),
-                            ec2.Port.tcp(2380), 'ETCD peer port')
+        # allow any ingress traffic
+        sg.add_ingress_rule(peer=ec2.Peer.any_ipv4(), connection=ec2.Port.all_traffic())
         self.sg = sg
 
     def setup_s3(self):
