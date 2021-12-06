@@ -170,11 +170,11 @@ ssh -A -l ec2-user 54.247.190.179 -L8888:emqx-nlb-william-bbbbbbb.elb.eu-west-1.
 
 ``` bash
 # EMQX
-ssh -l ubuntu emqx-0.int.william
+ssh emqx-0
 # LOADGEN
-ssh -l ubuntu loadgen-0.int.william
+ssh loadgen-0
 # ETCD
-ssh -l ubuntu etcd0.int.william
+ssh etcd0
 ```
 
 # Provision Grafana Dashboards
@@ -220,7 +220,7 @@ CDK_EMQX_CLUSTERNAME=william cdk destroy CdkEmqxClusterStack
 
 For some more relevant performance tests, you can use larger instances. For a two node emqx cluster with one loadgen with a particular branch:
 ```bash
-CDK_EMQX_CLUSTERNAME=william cdk deploy --all -c emqx_src="git clone -b YOUR_BRANCH https://github.com/emqx/emqx" -c emqx_n=2 -c emqx_ins_type="m5.2xlarge" -c loadgen_ins_type="m5n.xlarge" -c emqx_eb=20 -c keep_efs=True
+CDK_EMQX_CLUSTERNAME=william cdk deploy --all -c emqx_src="git clone -b YOUR_BRANCH https://github.com/emqx/emqx" -c emqx_n=2 -c emqx_ins_type="m5.2xlarge" -c loadgen_ins_type="m5n.xlarge" -c emqx_ebs=20 
 ```
 The `emqx_ebs` is needed since these instances do not have storage by default.
 
