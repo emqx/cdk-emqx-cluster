@@ -16,7 +16,7 @@ sysctl -p
 
 ## Install OTP
 apt update
-apt install -y make wget gnupg2 git build-essential curl cmake debhelper tmux libodbc1 awscli
+apt install -y make wget gnupg2 git build-essential curl cmake debhelper tmux libodbc1 awscli net-tools
 
 #snap install cmake --classic
 wget -O - https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc | sudo apt-key add -
