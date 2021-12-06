@@ -126,6 +126,12 @@ rate_limit {
   conn_bytes_in = infinity
 }
 
+system_monitor {
+  db_hostname = "lb.${domain}"
+  db_username = "system_monitor"
+  db_password = "system_monitor_password"
+}
+
 EOF
 }
 
