@@ -395,7 +395,7 @@ class CdkEmqxClusterStack(cdk.Stack):
         c_postgres = task.add_container('postgres',
                                         essential=True,
                                         image=ecs.ContainerImage.from_registry(
-                                            'ghcr.io/k32/perf-test-postgres:master'),
+                                            'ghcr.io/emqx/perf-test-postgres:master'),
                                         port_mappings=[
                                             ecs.PortMapping(container_port=5432)],
                                         stop_timeout=Duration.seconds(10), # It looks like postgres doesn't want to die sometimes
@@ -407,7 +407,7 @@ class CdkEmqxClusterStack(cdk.Stack):
         c_grafana = task.add_container('grafana',
                                        essential=True,
                                        image=ecs.ContainerImage.from_registry(
-                                           'ghcr.io/k32/perf-test-grafana:master'),
+                                           'ghcr.io/emqx/perf-test-grafana:master'),
                                        port_mappings=[
                                            ecs.PortMapping(container_port=3000)]
                                        )
