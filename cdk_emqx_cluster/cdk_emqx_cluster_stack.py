@@ -308,6 +308,7 @@ class CdkEmqxClusterStack(cdk.Stack):
         sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(
             9091), 'prometheus pushgateway')
         sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(3000), 'grafana')
+        sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(5432), 'postgres')
 
         self.ap_prom_data = efs.AccessPoint(self, "shared-data-prom",
                                             path='/tsdb_data',
@@ -391,10 +392,22 @@ class CdkEmqxClusterStack(cdk.Stack):
                                                ecs.PortMapping(container_port=9091)]
                                            )
 
+        c_postgres = task.add_container('postgres',
+                                        essential=True,
+                                        image=ecs.ContainerImage.from_registry(
+                                            'ghcr.io/k32/perf-test-postgres:master'),
+                                        port_mappings=[
+                                            ecs.PortMapping(container_port=5432)],
+                                        stop_timeout=Duration.seconds(10), # It looks like postgres doesn't want to die sometimes
+                                        start_timeout=Duration.seconds(300),
+                                        environment={
+                                            'POSTGRES_PASSWORD': '123'}
+                                        )
+
         c_grafana = task.add_container('grafana',
                                        essential=True,
                                        image=ecs.ContainerImage.from_registry(
-                                           'grafana/grafana'),
+                                           'ghcr.io/k32/perf-test-grafana:master'),
                                        port_mappings=[
                                            ecs.PortMapping(container_port=3000)]
                                        )
@@ -414,6 +427,7 @@ class CdkEmqxClusterStack(cdk.Stack):
         listenerGrafana = nlb.add_listener('grafana', port=3000)
         listenerPrometheus = nlb.add_listener('prometheus', port=9090)
         listenerPushGateway = nlb.add_listener('pushgateway', port=9091)
+        listenerPostgres = nlb.add_listener('postgres', port=5432)
 
         listenerGrafana.add_targets(id='grafana', port=3000, targets=[service.load_balancer_target(
             container_name="grafana",
@@ -427,6 +441,11 @@ class CdkEmqxClusterStack(cdk.Stack):
         listenerPushGateway.add_targets(id='pushgateway', port=9091, targets=[service.load_balancer_target(
             container_name="pushgateway",
             container_port=9091
+        )]),
+
+        listenerPostgres.add_targets(id='postgres', port=5432, targets=[service.load_balancer_target(
+            container_name="postgres",
+            container_port=5432
         )]),
 
         self.mon_lb = self.loadbalancer_dnsname
