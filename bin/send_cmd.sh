@@ -57,8 +57,9 @@ case $command in
         ;;
 
     "collect_logs")
+        logname_prefix=$1;
         aws ssm send-command --document-name "$doc_name" \
-            --parameters "{\"Bucket\":[\"emqx-cdk-cluster\"],\"Path\":[\"$cluster\"]}" \
+            --parameters "{\"Bucket\":[\"emqx-cdk-cluster\"],\"Path\":[\"$cluster\"], \"Prefix\":[\"$logname_prefix\"]}" \
             --targets "[{\"Key\":\"tag:cluster\",\"Values\":[\"$cluster\"]},{\"Key\":\"tag:service\",\"Values\":[\"emqx\"]}]" \
             --timeout-seconds 600 --max-concurrency "50" --max-errors "0" --region eu-west-1
         ;;

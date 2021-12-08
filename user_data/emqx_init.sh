@@ -153,6 +153,14 @@ EOF
   echo "{emqx_prometheus, true}." >> /var/lib/emqx/loaded_plugins
 }
 
+maybe_install_license() {
+  local cluster=$(hostname -f | cut -d . -f 3)
+  local lic="s3://emqx-cdk-cluster/$cluster/emqx.lic"
+  if aws s3 ls "$lic"; then
+    aws s3 cp "$lic" /etc/emqx/
+  fi
+}
+
 # Assume we have emqx src in PWD
 # emqx src is either deb file or git src tree
 
@@ -174,5 +182,5 @@ case "${EMQX_VERSION}" in
     echo "Unknown EMQX_VERSION: ${EMQX_VERSION}"
 esac
 
-
+maybe_install_license
 systemctl start emqx

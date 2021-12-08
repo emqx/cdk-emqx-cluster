@@ -159,15 +159,15 @@ class CdkEmqxClusterStack(cdk.Stack):
         self.setup_lb()
         self.setup_efs()
 
-        # Setup Bastion
-        self.setup_bastion()
-
         # Create Application Services
         self.setup_kafka()
         self.setup_emqx(self.numEmqx)
         self.setup_etcd()
         self.setup_loadgen(self.numLg)
         self.setup_monitoring(self.hosts)
+
+        # Setup Bastion
+        self.setup_bastion()
 
         # Outputs
         self.cfn_outputs()
@@ -187,8 +187,11 @@ class CdkEmqxClusterStack(cdk.Stack):
                        % (self.bastion.instance_public_ip, self.mon_lb, self.mon_lb, self.mon_lb)
                        )
         core.CfnOutput(self, 'EFS ID:', value=self.shared_efs.file_system_id)
-        if self.exp1:
-            core.CfnOutput(self, "Exp1:", value=self.exp1.ref)
+
+        if self.kafka_ebs_vol_size:
+            core.CfnOutput(self, 'KAFKA Brokers:', value=self.kafka.bootstrap_brokers)
+            core.CfnOutput(self, 'KAFKA TLS Brokers:', value=self.kafka.bootstrap_brokers_tls)
+            core.CfnOutput(self, 'KAFKA ZK:', value=self.kafka.zookeeper_connection_string)
 
     def setup_loadgen(self, N):
         vpc = self.vpc
@@ -698,6 +701,33 @@ class CdkEmqxClusterStack(cdk.Stack):
             mount -t efs -o tls %s:/ /mnt/efs-data
             """ % (self.cluster_name, self.shared_efs.file_system_id)
         )
+        if self.kafka_ebs_vol_size:
+            bastion.instance.add_user_data(
+            f"""
+            #!/bin/bash
+            sudo yum install -y java-1.8.0
+            wget https://archive.apache.org/dist/kafka/2.2.1/kafka_2.12-2.2.1.tgz
+            tar zxvf kafka_2.12-2.2.1.tgz
+            cd kafka_2.12-2.2.1
+            bin/kafka-topics.sh --create --zookeeper "{self.kafka.zookeeper_connection_string}" --replication-factor 2 --partitions 12 --topic t1 --config segment.bytes=200000000 --config retention.ms=3600000
+            """)
+
+            with open("./user_data/emqx-kafka-rule-engine.json") as f:
+                template = f.read()
+                config_dump = json.loads(template)
+                # jq path:  .resources[].config.servers
+                config_dump['resources'][0]['config']['servers'] = self.kafka.bootstrap_brokers
+                config_json = json.dumps(config_dump)
+
+            bastion.instance.add_user_data(
+            textwrap.dedent(f"""
+            #!/bin/bash
+            cat > emqx_config.json << EOF
+            {config_json}
+            EOF
+            curl -i --basic -u admin:public -X POST "http://emqx-0.int.{self.cluster_name}:8081/api/v4/data/import" \
+            -d @emqx_config.json
+            """))
 
         self.sg_efs_mt.add_ingress_rule(
             peer=sg_bastion, connection=ec2.Port.all_traffic())
@@ -865,8 +895,8 @@ class CdkEmqxClusterStack(cdk.Stack):
             self.shared_efs = efs.FileSystem.from_file_system_attributes(self, id=fsid, security_group=self.sg_efs_mt,
                                                                          file_system_id=self.retain_efs)
             # we need to explicitly add the mount targets for all private subnets
-            for net in self.vpc.private_subnets:
-                cfn_mount_target = efs.CfnMountTarget(self, 'monitoring-mountpoint',
+            for (netid, net) in enumerate(self.vpc.private_subnets):
+                cfn_mount_target = efs.CfnMountTarget(self, 'monitoring-mountpoint-%s' % netid,
                                                       file_system_id=self.shared_efs.file_system_id,
                                                       security_groups=[
                                                           self.sg_efs_mt.security_group_id],

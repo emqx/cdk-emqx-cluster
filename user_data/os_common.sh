@@ -16,7 +16,7 @@ sysctl -p
 
 ## Install OTP
 apt update
-apt install -y make wget gnupg2 git build-essential curl cmake debhelper tmux libodbc1 awscli net-tools
+apt install -y make wget gnupg2 git build-essential curl cmake debhelper tmux libodbc1 awscli net-tools linux-tools-common linux-tools-aws
 
 #snap install cmake --classic
 wget -O - https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc | sudo apt-key add -
@@ -61,3 +61,7 @@ EOF
 
 systemctl enable node_exporter
 systemctl start node_exporter
+
+apt-add-repository ppa:lttng/stable-2.13
+apt-get update
+apt-get install -y lttng-tools lttng-modules-dkms babeltrace liblttng-ust-dev

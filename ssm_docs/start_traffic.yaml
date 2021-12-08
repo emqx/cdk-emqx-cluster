@@ -70,7 +70,7 @@ mainSteps:
       if [[ "{{ Command }}" == "pub" ]]; then
       extra_args=( -I {{ PubInterval }} )
       fi
-      nohup _build/default/bin/emqtt_bench "{{ Command }}" -h "{{ Host }}" -t "{{ Topic }}" -c "{{ Clients }}" --prefix "{{ Prefix }}"  -i {{ Interval }} ${extra_args[*]} --ifaddr $ipaddrs \
+      nohup _build/default/bin/emqtt_bench "{{ Command }}" -h "{{ Host }}" -t "{{ Topic }}" -c "{{ Clients }}" --prefix "{{ Prefix }}"  -F 1 -i {{ Interval }} ${extra_args[*]} --ifaddr $ipaddrs \
         > run.log &
 
 
