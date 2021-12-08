@@ -46,12 +46,12 @@ case $command in
         # supply command parameters and targets
         LB="lb.int.$cluster"
         aws ssm send-command --document-name "$doc_name" \
-            --parameters "{\"Host\": [\"$LB\"], \"Command\":[\"sub\"],\"Prefix\":[\"cdk\"],\"Topic\":[\"topic_a\"],\"Clients\":[\"200000\"],\"Interval\":[\"200\"]}" \
+            --parameters "{\"Host\": [\"$LB\"], \"Command\":[\"sub\"],\"Prefix\":[\"cdk\"],\"Topic\":[\"t1\"],\"Clients\":[\"200000\"],\"Interval\":[\"200\"]}" \
             --targets "[{\"Key\":\"tag:cluster\",\"Values\":[\"$cluster\"]},{\"Key\":\"tag:service\",\"Values\":[\"loadgen\"]}]" \
             --timeout-seconds 60 --max-concurrency "30" --max-errors "0"
 
         aws ssm send-command --document-name "$doc_name" \
-            --parameters "{\"Host\": [\"$LB\"], \"Command\":[\"pub\"],\"Prefix\":[\"cdk\"],\"Topic\":[\"topic_a\"],\"Clients\":[\"200000\"],\"Interval\":[\"200\"], \"PubInterval\":[\"200\"]}" \
+            --parameters "{\"Host\": [\"$LB\"], \"Command\":[\"pub\"],\"Prefix\":[\"cdk\"],\"Topic\":[\"t1\"],\"Clients\":[\"200000\"],\"Interval\":[\"200\"], \"PubInterval\":[\"200\"]}" \
             --targets "[{\"Key\":\"tag:cluster\",\"Values\":[\"$cluster\"]},{\"Key\":\"tag:service\",\"Values\":[\"loadgen\"]}]" \
             --timeout-seconds 60 --max-concurrency "30" --max-errors "0"
         ;;
