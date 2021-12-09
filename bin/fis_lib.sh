@@ -13,7 +13,10 @@ ALL_FIS_FAULTS=( emqx-node-shutdown
                  emqx-high-mem-80
                  emqx-distport-blackhole
                  emqx-latency-200ms
-                 emqx-packet-loss-10 )
+                 emqx-packet-loss-10
+                 kafka-plaintext-latency-200
+                 kafka-plaintext-pktloss-10
+               )
 ## either completed for failed
 wait_fis_job_finish() {
     local jobid=$1

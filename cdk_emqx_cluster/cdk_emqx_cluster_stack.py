@@ -28,6 +28,8 @@ import textwrap
 import yaml
 import json
 
+from chaos_test import SsmDocExperiment,IamRoleFis
+
 linux_ami = ec2.GenericLinuxImage({
     # https://cloud-images.ubuntu.com/locator/ec2/
     "eu-west-1": "ami-08edbb0e85d6a0a07",  # ubuntu 20.04 latest
@@ -864,6 +866,8 @@ class CdkEmqxClusterStack(cdk.Stack):
             self.kafka = None
             return
 
+        role = IamRoleFis(self, id='emqx-kafka-fis-role')
+        self.role_arn = role.role_arn
         # Kafka Internal Access
         kafka_sg = ec2.SecurityGroup(self, id='sg_kafka', vpc=self.vpc)
         kafka_sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.all_traffic())
@@ -880,6 +884,25 @@ class CdkEmqxClusterStack(cdk.Stack):
                                  encryption_in_transit = msk.EncryptionInTransitConfig(
                                      client_broker=msk.ClientBrokerEncryption.TLS_PLAINTEXT)
                                  )
+
+        SsmDocExperiment(self, id='kafka-plaintext-pktloss-10', name='AWSFIS-Run-Network-Packet-Loss-Sources',
+                         desc='EMQX <--> Kafka plaintext broker packet loss 10%',
+                         doc_parms={'TrafficType':'ingress',
+                                    'DurationSeconds': '120',
+                                    'Sources' : self.kafka.bootstrap_brokers,
+                                    'LossPercent': '10',
+                                    'Interface':'ens5'}
+                         )
+
+        SsmDocExperiment(self, id='kafka-plaintext-latency-200', name='AWSFIS-Run-Network-Latency-Sources',
+                         desc='EMQX <--> Kafka, latency inc 200ms',
+                         doc_parms={'TrafficType':'ingress',
+                                    'DurationSeconds': '120',
+                                    'Sources' : self.kafka.bootstrap_brokers,
+                                    'DelayMilliseconds' : '200',
+                                    'JitterMilliseconds' : '10',
+                                    'Interface':'ens5'}
+                         )
 
     def setup_efs(self):
         # New SG for EFS
