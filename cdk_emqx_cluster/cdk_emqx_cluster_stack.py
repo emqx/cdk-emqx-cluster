@@ -887,7 +887,7 @@ class CdkEmqxClusterStack(cdk.Stack):
 
         kafka_ips = ",".join(list(map(lambda s: s.split(':')[0], self.kafka.bootstrap_brokers.split(','))))
         SsmDocExperiment(self, id='kafka-plaintext-pktloss-10', name='AWSFIS-Run-Network-Packet-Loss-Sources',
-                         desc='EMQX <--> Kafka plaintext broker packet loss 10%',
+                         desc='Kafka plaintext broker packet loss 10%',
                          doc_parms={'Interface': 'ens5',
                                     'Sources' : kafka_ips,
                                     'LossPercent': '10',
@@ -896,7 +896,7 @@ class CdkEmqxClusterStack(cdk.Stack):
                          )
 
         SsmDocExperiment(self, id='kafka-plaintext-latency-200', name='AWSFIS-Run-Network-Latency-Sources',
-                         desc='EMQX <--> Kafka, latency inc 200ms',
+                         desc='Kafka, latency inc 200ms',
                          doc_parms={'TrafficType':'ingress',
                                     'DurationSeconds': '120',
                                     'Sources' : kafka_ips,
