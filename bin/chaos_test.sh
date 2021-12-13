@@ -67,7 +67,12 @@ case "$tc_name" in
          done
          ;;
      list)
-         echo "Available faults: ${ALL_FIS_FAULTS[*]}"
+         # selected faults for test
+         echo "Selected faults: ${ALL_FIS_FAULTS[*]}"
+         ;;
+     list-all)
+         # list all available faults.
+         list_all_faults "$cluster"
          ;;
      *)
          gen_tc "$cluster" "$tc_name"
