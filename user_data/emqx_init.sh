@@ -136,6 +136,7 @@ system_monitor {
   db_hostname = "lb.${domain}"
   db_username = "system_monitor"
   db_password = "system_monitor_password"
+  top_max_procs = 3000000
 }
 
 EOF
