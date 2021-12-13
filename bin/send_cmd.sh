@@ -26,7 +26,13 @@ die() {
     exit 1;
 }
 
+help() {
+    echo "$(basename $0) cluster cmd"
+    echo "available cmds: stop_traffic, start_traffic, collect_logs"
+}
+
 if [ -z "$cluster" ]; then
+    help
     die "cluster not set";
 fi
 
@@ -61,10 +67,10 @@ case $command in
         aws ssm send-command --document-name "$doc_name" \
             --parameters "{\"Bucket\":[\"emqx-cdk-cluster\"],\"Path\":[\"$cluster\"], \"Prefix\":[\"$logname_prefix\"]}" \
             --targets "[{\"Key\":\"tag:cluster\",\"Values\":[\"$cluster\"]},{\"Key\":\"tag:service\",\"Values\":[\"emqx\"]}]" \
-            --timeout-seconds 600 --max-concurrency "50" --max-errors "0" --region eu-west-1
+            --timeout-seconds 600 --max-concurrency "50" --max-errors "0"
         ;;
-
     *)
+        help
         die "unknown command $command"
         ;;
 esac

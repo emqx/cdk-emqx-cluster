@@ -60,18 +60,27 @@ mainSteps:
     Start background traffic
   inputs:
     onFailure: exit
+    timeoutSeconds: 30
     runCommand:
     - |
       #!/bin/bash
       ulimit -n 8000000
       cd /root/emqtt-bench
       ipaddrs=$(ip addr |grep -o '192.*/32' | sed 's#/32##g' | paste -s -d , -)
+      cmd="{{ Command }}"
 
-      if [[ "{{ Command }}" == "pub" ]]; then
-      extra_args=( -I {{ PubInterval }} )
-      fi
-      nohup _build/default/bin/emqtt_bench "{{ Command }}" -h "{{ Host }}" -t "{{ Topic }}" -c "{{ Clients }}" --prefix "{{ Prefix }}"  -F 1 -i {{ Interval }} ${extra_args[*]} --ifaddr $ipaddrs \
-        > run.log &
+      case "$cmd" in
+      "pub")
+            extra_args=( -I {{ PubInterval }} -F 1)
+            ;;
+      "sub")
+           extra_args=( )
+           ;;
+      *)
+           extra_args=( )
+           ;;
+      esac
 
-
-
+      nohup _build/default/bin/emqtt_bench "{{ Command }}" -h "{{ Host }}" -t "{{ Topic }}" -c "{{ Clients }}" --prefix "{{ Prefix }}"  -i {{ Interval }} ${extra_args[*]} --ifaddr $ipaddrs \
+        >run.log.`date +%s` 2>&1 &
+      exit 0;
