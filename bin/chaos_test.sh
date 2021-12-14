@@ -15,26 +15,12 @@ die() {
     exit 1
 }
 
-wait_ssm_cmd_finish() {
-    local jobid=$1
-    job_status=""
-    while [[ $job_status != "Success" && $job_status != "Failed" ]];
-    do
-        sleep 20;
-        job_status=$(aws ssm list-command-invocations --command-id="$jobid" | jq -r .CommandInvocations[].Status
-                   );
-    done;
-    echo "$job_status"
-}
-
-
 gen_tc() {
     cluster=$1
     fault=$2
     # step 0: stop traffic
     echo "Stop Traffic"
-    cmdid=$($BASEDIR/send_cmd.sh "$cluster" "stop_traffic" |  jq -r .Command.CommandId )
-    wait_ssm_cmd_finish "$cmdid"
+    $BASEDIR/send_cmd.sh "$cluster" "stop_traffic"
 
     # step 1: start traffic
     echo "Start Traffic"

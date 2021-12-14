@@ -28,7 +28,7 @@ import textwrap
 import yaml
 import json
 
-from chaos_test import SsmDocExperiment,IamRoleFis
+from chaos_test import SsmDocExperiment,IamRoleFis,ControlCmd
 
 linux_ami = ec2.GenericLinuxImage({
     # https://cloud-images.ubuntu.com/locator/ec2/
@@ -885,7 +885,7 @@ class CdkEmqxClusterStack(cdk.Stack):
                                      client_broker=msk.ClientBrokerEncryption.TLS_PLAINTEXT)
                                  )
 
-        if None:
+        if True:
             cmd_fis_network_loss_src = ControlCmd(self, 'fis-network-packet-loss-src',
                                          'fis-network-packet-loss-src.yaml', service='emqx')
             cmd_fis_network_latency_src = ControlCmd(self, 'fis-network-latency-src',

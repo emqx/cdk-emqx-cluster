@@ -111,6 +111,10 @@ class CdkChaosTest(cdk.Stack):
                              desc='EMQX: NET, 10% egress Packet Lost for 2mins',
                              doc_parms={'DurationSeconds': '120', 'LossPercent': '10', 'Interface':'ens5'}), # ubuntu nif name
 
+            SsmDocExperiment(self, id='emqx-packet-loss-100', name='AWSFIS-Run-Network-Packet-Loss',
+                             desc='EMQX: NET, 100% egress Packet Lost for 2mins',
+                             doc_parms={'DurationSeconds': '120', 'LossPercent': '100', 'Interface':'ens5'}) , # ubuntu nif name
+
         ]
 
         self.cmds = [
