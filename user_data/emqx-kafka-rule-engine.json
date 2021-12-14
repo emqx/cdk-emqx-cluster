@@ -1,0 +1,64 @@
+{
+  "version": "4.3",
+  "rules": [
+    {
+      "id": "rule:411774",
+      "rawsql": "SELECT\n\n*\n\nFROM\n\n  \"t1/#\"\n",
+      "actions": [
+        {
+          "id": "data_to_kafka_1638992731044447214",
+          "name": "data_to_kafka",
+          "fallbacks": [],
+          "args": {
+            "type": "async",
+            "topic": "t1",
+            "strategy": "random",
+            "segments_bytes": "100MB",
+            "required_acks": "leader_only",
+            "payload_tmpl": "",
+            "partition_count_refresh_interval": "60s",
+            "max_total_bytes": "2GB",
+            "key": "none",
+            "cache_mode": "Memory",
+            "$resource": "resource:861649"
+          }
+        }
+      ],
+      "enabled": true,
+      "description": ""
+    }
+  ],
+  "resources": [
+    {
+      "id": "resource:861649",
+      "type": "bridge_kafka",
+      "config": {
+        "cacertfile": {
+          "filename": "",
+          "file": ""
+        },
+        "certfile": {
+          "filename": "",
+          "file": ""
+        },
+        "compression": "snappy",
+        "keyfile": {
+          "filename": "",
+          "file": ""
+        },
+        "max_batch_bytes": "900KB",
+        "min_metadata_refresh_interval": "3s",
+        "password": "",
+        "query_api_versions": true,
+        "send_buffer": "1024KB",
+        "servers": "b-2.william-k2-kafka.x7x6m7.c3.kafka.eu-west-1.amazonaws.com:9092,b-1.william-k2-kafka.x7x6m7.c3.kafka.eu-west-1.amazonaws.com:9092",
+        "ssl": false,
+        "sync_timeout": "3s",
+        "username": "",
+        "verify": false
+      },
+      "created_at": 1638992699496,
+      "description": ""
+    }
+  ]
+}

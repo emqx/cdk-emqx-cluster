@@ -28,6 +28,8 @@ import textwrap
 import yaml
 import json
 
+from chaos_test import SsmDocExperiment,IamRoleFis,ControlCmd
+
 linux_ami = ec2.GenericLinuxImage({
     # https://cloud-images.ubuntu.com/locator/ec2/
     "eu-west-1": "ami-08edbb0e85d6a0a07",  # ubuntu 20.04 latest
@@ -159,15 +161,15 @@ class CdkEmqxClusterStack(cdk.Stack):
         self.setup_lb()
         self.setup_efs()
 
-        # Setup Bastion
-        self.setup_bastion()
-
         # Create Application Services
         self.setup_kafka()
         self.setup_emqx(self.numEmqx)
         self.setup_etcd()
         self.setup_loadgen(self.numLg)
         self.setup_monitoring(self.hosts)
+
+        # Setup Bastion
+        self.setup_bastion()
 
         # Outputs
         self.cfn_outputs()
@@ -187,8 +189,11 @@ class CdkEmqxClusterStack(cdk.Stack):
                        % (self.bastion.instance_public_ip, self.mon_lb, self.mon_lb, self.mon_lb)
                        )
         core.CfnOutput(self, 'EFS ID:', value=self.shared_efs.file_system_id)
-        if self.exp1:
-            core.CfnOutput(self, "Exp1:", value=self.exp1.ref)
+
+        if self.kafka_ebs_vol_size:
+            core.CfnOutput(self, 'KAFKA Brokers:', value=self.kafka.bootstrap_brokers)
+            core.CfnOutput(self, 'KAFKA TLS Brokers:', value=self.kafka.bootstrap_brokers_tls)
+            core.CfnOutput(self, 'KAFKA ZK:', value=self.kafka.zookeeper_connection_string)
 
     def setup_loadgen(self, N):
         vpc = self.vpc
@@ -717,6 +722,33 @@ class CdkEmqxClusterStack(cdk.Stack):
             mount -t efs -o tls %s:/ /mnt/efs-data
             """ % (self.cluster_name, self.shared_efs.file_system_id)
         )
+        if self.kafka_ebs_vol_size:
+            bastion.instance.add_user_data(
+            f"""
+            #!/bin/bash
+            sudo yum install -y java-1.8.0
+            wget https://archive.apache.org/dist/kafka/2.2.1/kafka_2.12-2.2.1.tgz
+            tar zxvf kafka_2.12-2.2.1.tgz
+            cd kafka_2.12-2.2.1
+            bin/kafka-topics.sh --create --zookeeper "{self.kafka.zookeeper_connection_string}" --replication-factor 2 --partitions 12 --topic t1 --config segment.bytes=200000000 --config retention.ms=3600000
+            """)
+
+            with open("./user_data/emqx-kafka-rule-engine.json") as f:
+                template = f.read()
+                config_dump = json.loads(template)
+                # jq path:  .resources[].config.servers
+                config_dump['resources'][0]['config']['servers'] = self.kafka.bootstrap_brokers
+                config_json = json.dumps(config_dump)
+
+            bastion.instance.add_user_data(
+            textwrap.dedent(f"""
+            #!/bin/bash
+            cat > emqx_config.json << EOF
+            {config_json}
+            EOF
+            curl -i --basic -u admin:public -X POST "http://emqx-0.int.{self.cluster_name}:8081/api/v4/data/import" \
+            -d @emqx_config.json
+            """))
 
         self.sg_efs_mt.add_ingress_rule(
             peer=sg_bastion, connection=ec2.Port.all_traffic())
@@ -853,6 +885,8 @@ class CdkEmqxClusterStack(cdk.Stack):
             self.kafka = None
             return
 
+        role = IamRoleFis(self, id='emqx-kafka-fis-role')
+        self.role_arn = role.role_arn
         # Kafka Internal Access
         kafka_sg = ec2.SecurityGroup(self, id='sg_kafka', vpc=self.vpc)
         kafka_sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.all_traffic())
@@ -870,6 +904,44 @@ class CdkEmqxClusterStack(cdk.Stack):
                                      client_broker=msk.ClientBrokerEncryption.TLS_PLAINTEXT)
                                  )
 
+        if True:
+            cmd_fis_network_loss_src = ControlCmd(self, 'fis-network-packet-loss-src',
+                                         'fis-network-packet-loss-src.yaml', service='emqx')
+            cmd_fis_network_latency_src = ControlCmd(self, 'fis-network-latency-src',
+                                             'fis-network-latency-src.yaml', service='emqx')
+
+            SsmDocExperiment(self, id='kafka-plaintext-pktloss-10',
+                             name=cmd_fis_network_loss_src.phid_name,
+                             desc='Kafka plaintext broker packet loss 10%',
+                             doc_parms={'Interface': 'ens5',
+                                        'Sources' : self.kafka.bootstrap_brokers,
+                                        'LossPercent': '10',
+                                        'DurationSeconds': '120'
+                                        }
+                             )
+
+            SsmDocExperiment(self, id='kafka-plaintext-pktloss-100',
+                             name=cmd_fis_network_loss_src.phid_name,
+                             account = self.account,
+                             desc='Kafka plaintext broker packet loss 100%',
+                             doc_parms={'Interface': 'ens5',
+                                        'Sources' : self.kafka.bootstrap_brokers,
+                                        'LossPercent': '100',
+                                        'DurationSeconds': '120'
+                                        }
+                             )
+
+            SsmDocExperiment(self, id='kafka-plaintext-latency-200',
+                             name=cmd_fis_network_latency_src.phid_name,
+                             account = self.account,
+                             desc='Kafka, latency inc 200ms',
+                             doc_parms={'TrafficType':'ingress',
+                                        'DurationSeconds': '120',
+                                        'Sources' : self.kafka.bootstrap_brokers,
+                                        'DelayMilliseconds' : '200',
+                                        'JitterMilliseconds' : '10',
+                                        'Interface':'ens5'}
+                             )
     def setup_efs(self):
         # New SG for EFS
         self.sg_efs_mt = ec2.SecurityGroup(self, "sg_efs_mt", vpc=self.vpc)
@@ -884,8 +956,8 @@ class CdkEmqxClusterStack(cdk.Stack):
             self.shared_efs = efs.FileSystem.from_file_system_attributes(self, id=fsid, security_group=self.sg_efs_mt,
                                                                          file_system_id=self.retain_efs)
             # we need to explicitly add the mount targets for all private subnets
-            for net in self.vpc.private_subnets:
-                cfn_mount_target = efs.CfnMountTarget(self, 'monitoring-mountpoint',
+            for (netid, net) in enumerate(self.vpc.private_subnets):
+                cfn_mount_target = efs.CfnMountTarget(self, 'monitoring-mountpoint-%s' % netid,
                                                       file_system_id=self.shared_efs.file_system_id,
                                                       security_groups=[
                                                           self.sg_efs_mt.security_group_id],

@@ -8,8 +8,9 @@ description: |-
   N/A
 
   ## Input Parameters
-  S3 bucket: S3 bucket name
-  PATH: Object Path
+  Bucket: S3 bucket name
+  Path: Object Path
+  Prefix: log file archive prefix
 
   ## Output Parameters
   None.
@@ -23,6 +24,10 @@ parameters:
   Path:
     type: String
     description: Path
+  Prefix:
+    type: String
+    description: Log archive name prefix
+
 
 mainSteps:
 - action: aws:runShellScript
@@ -39,12 +44,6 @@ mainSteps:
     - |
       #!/bin/bash
       Path="s3://{{ Bucket }}/{{ Path }}"/`hostname`
-      /usr/lib/emqx/bin/node_dump
-      for f in $(ls /var/log/emqx/node_dump*);
-      do
-      aws s3 cp "$f" "$Path/$f";
-      done
-
-
-
-
+      dumpfile=$(/usr/lib/emqx/bin/node_dump |grep "Created a node dump" | cut -d ' ' -f 5)
+      archive=$(basename $dumpfile)
+      aws s3 cp "$dumpfile" "$Path/{{ Prefix }}/$archive";
