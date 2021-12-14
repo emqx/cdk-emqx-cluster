@@ -885,26 +885,44 @@ class CdkEmqxClusterStack(cdk.Stack):
                                      client_broker=msk.ClientBrokerEncryption.TLS_PLAINTEXT)
                                  )
 
-        kafka_ips = ",".join(list(map(lambda s: s.split(':')[0], self.kafka.bootstrap_brokers.split(','))))
-        SsmDocExperiment(self, id='kafka-plaintext-pktloss-10', name='AWSFIS-Run-Network-Packet-Loss-Sources',
-                         desc='Kafka plaintext broker packet loss 10%',
-                         doc_parms={'Interface': 'ens5',
-                                    'Sources' : kafka_ips,
-                                    'LossPercent': '10',
-                                    'DurationSeconds': '120'
-                                    }
-                         )
+        if None:
+            cmd_fis_network_loss_src = ControlCmd(self, 'fis-network-packet-loss-src',
+                                         'fis-network-packet-loss-src.yaml', service='emqx')
+            cmd_fis_network_latency_src = ControlCmd(self, 'fis-network-latency-src',
+                                             'fis-network-latency-src.yaml', service='emqx')
 
-        SsmDocExperiment(self, id='kafka-plaintext-latency-200', name='AWSFIS-Run-Network-Latency-Sources',
-                         desc='Kafka, latency inc 200ms',
-                         doc_parms={'TrafficType':'ingress',
-                                    'DurationSeconds': '120',
-                                    'Sources' : kafka_ips,
-                                    'DelayMilliseconds' : '200',
-                                    'JitterMilliseconds' : '10',
-                                    'Interface':'ens5'}
-                         )
+            SsmDocExperiment(self, id='kafka-plaintext-pktloss-10',
+                             name=cmd_fis_network_loss_src.phid_name,
+                             desc='Kafka plaintext broker packet loss 10%',
+                             doc_parms={'Interface': 'ens5',
+                                        'Sources' : self.kafka.bootstrap_brokers,
+                                        'LossPercent': '10',
+                                        'DurationSeconds': '120'
+                                        }
+                             )
 
+            SsmDocExperiment(self, id='kafka-plaintext-pktloss-100',
+                             name=cmd_fis_network_loss_src.phid_name,
+                             account = self.account,
+                             desc='Kafka plaintext broker packet loss 100%',
+                             doc_parms={'Interface': 'ens5',
+                                        'Sources' : self.kafka.bootstrap_brokers,
+                                        'LossPercent': '100',
+                                        'DurationSeconds': '120'
+                                        }
+                             )
+
+            SsmDocExperiment(self, id='kafka-plaintext-latency-200',
+                             name=cmd_fis_network_latency_src.phid_name,
+                             account = self.account,
+                             desc='Kafka, latency inc 200ms',
+                             doc_parms={'TrafficType':'ingress',
+                                        'DurationSeconds': '120',
+                                        'Sources' : self.kafka.bootstrap_brokers,
+                                        'DelayMilliseconds' : '200',
+                                        'JitterMilliseconds' : '10',
+                                        'Interface':'ens5'}
+                             )
     def setup_efs(self):
         # New SG for EFS
         self.sg_efs_mt = ec2.SecurityGroup(self, "sg_efs_mt", vpc=self.vpc)

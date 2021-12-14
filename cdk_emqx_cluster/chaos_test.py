@@ -37,7 +37,7 @@ class CdkChaosTest(cdk.Stack):
             #
             # * NODE SHUTDOWN
             CdkExperiment(self, id='emqx-node-shutdown', name='emqx-node-shutdown',
-                          description='emqx node shutdown',
+                          description='EMQX: node shutdown',
 
                           # targets for faults injections
                           targets={'targets-emqx': fis.CfnExperimentTemplate.ExperimentTemplateTargetProperty(
@@ -74,6 +74,11 @@ class CdkChaosTest(cdk.Stack):
                              desc='EMQX: IOStress 80% for 2mins',
                              doc_parms={'DurationSeconds': '120', 'Percent': '80'}),
 
+            # * IO Stress 100%
+            SsmDocExperiment(self, id='emqx-high-io-100', name='AWSFIS-Run-IO-Stress',
+                             desc='EMQX: IOStress 100% for 2mins',
+                             doc_parms={'DurationSeconds': '120', 'Percent': '100'}),
+
             # * Kill emqx Process
             SsmDocExperiment(self, id='emqx-kill-proc', name='AWSFIS-Run-Kill-Process',
                              desc='EMQX: Kill emqx Process for 2mins',
@@ -82,6 +87,14 @@ class CdkChaosTest(cdk.Stack):
             SsmDocExperiment(self, id='emqx-high-mem-80', name='AWSFIS-Run-Memory-Stress',
                              desc='EMQX: Mem: 80% for 2mins',
                              doc_parms={'DurationSeconds': '120', 'Percent': '80'}),
+
+            SsmDocExperiment(self, id='emqx-high-mem-95', name='AWSFIS-Run-Memory-Stress',
+                             desc='EMQX: Mem: 95% for 2mins',
+                             doc_parms={'DurationSeconds': '120', 'Percent': '95'}),
+
+            SsmDocExperiment(self, id='emqx-high-mem-100', name='AWSFIS-Run-Memory-Stress',
+                             desc='EMQX: Mem: 100% for 2mins',
+                             doc_parms={'DurationSeconds': '120', 'Percent': '100'}),
 
             # * Network Blackhole
             SsmDocExperiment(self, id='emqx-distport-blackhole', name='AWSFIS-Run-Network-Blackhole-Port',
@@ -109,7 +122,6 @@ class CdkChaosTest(cdk.Stack):
                        'stop_traffic.yaml', service='loadgen')
         ]
 
-
 class ControlCmd(ssm.CfnDocument):
     def __init__(self, scope: cdk.Construct, construct_id: str, doc_name: str, service: str, **kwargs) -> None:
         content = yaml.safe_load(open("./ssm_docs/" + doc_name).read())
@@ -122,7 +134,9 @@ class ControlCmd(ssm.CfnDocument):
                          document_type='Command',
                          content=content,
                          **kwargs)
-
+        # AWS limitation we have to override the physical id
+        self.phid_name='%s-%s'%(construct_id, scope.cluster_name)
+        self.add_property_override('Name', self.phid_name)
 
 class CdkExperiment(fis.CfnExperimentTemplate):
     """
@@ -142,12 +156,14 @@ class CdkExperiment(fis.CfnExperimentTemplate):
 
 class SsmDocExperiment(CdkExperiment):
     """ use 'aws ssm list-documents' to find all the available docs (AWS provides)"""
-    def __init__(self, scope: cdk.Construct, id: str, name: str, doc_parms : dict, desc:str) -> None:
-        doc_arn = core.Arn.format(core.ArnComponents(service='ssm',
-                                                     resource='document',
-                                                     account='',
-                                                     resource_name=name
-                                                     ), scope)
+    def __init__(self, scope: cdk.Construct, id: str, name:str, doc_parms : dict, desc:str, account='', doc_arn = None) -> None:
+        if not doc_arn:
+            doc_arn = core.Arn.format(core.ArnComponents(service='ssm',
+                                                         resource='document',
+                                                         account=account,
+                                                         resource_name=name
+                                                         ), scope)
+        self.doc_arn = doc_arn,
         super().__init__(scope, id=id, name=id,
                           description=desc,
                           # targets for faults injections, we pick only one
@@ -161,7 +177,6 @@ class SsmDocExperiment(CdkExperiment):
                           actions={
                               'action-1': fis.CfnExperimentTemplate.ExperimentTemplateActionProperty(
                                   action_id='aws:ssm:send-command',
-
                                   parameters={ 'documentArn': doc_arn,
                                                'documentParameters': json.dumps(doc_parms),
                                                'duration' : 'PT2M'
