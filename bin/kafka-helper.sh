@@ -8,7 +8,6 @@ die() {
 kafka_get_cluser_arn() {
     local cluster=$1;
     aws kafka list-clusters --cluster-name-filter="${cluster}-kafka" | jq -r '.ClusterInfoList[].ClusterArn'
-
 }
 
 kafka_get_cluser_zks() {
