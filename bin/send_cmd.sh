@@ -34,15 +34,22 @@ help() {
 wait_for_cmd_finish() {
     local jobid=$1
     local interval=${2:-20}
-    job_status=""
-    while [[ $job_status != "Success" && $job_status != "Failed" ]];
+    local job_status=""
+    local result=""
+    # wait for the result either success for failed
+    while [[ $result != "true" ]];
     do
         sleep $interval;
-        job_status=$(aws ssm list-command-invocations --command-id="$jobid" | jq -r .CommandInvocations[].Status
-                   );
+        job_status=$(aws ssm list-command-invocations --command-id="$jobid");
+        result=$(echo "$job_status" | jq -r '.CommandInvocations | map(.Status == "Success" or .Status== "Failed") | all');
     done;
-    aws ssm list-command-invocations --command-id="$jobid"
     echo "$job_status"
+    ## ensure
+    if [[ "true" == $(echo "$job_status" | jq -r '.CommandInvocations | map(.Status == "Success")  | all') ]]; then
+        return 0;
+    else
+        return 1;
+    fi
 }
 
 if [ -z "$cluster" ]; then
@@ -66,17 +73,12 @@ case $command in
 
     "start_traffic")
         # supply command parameters and targets
-        LB="lb.int.$cluster"
+        param=$1;
         jobid=$(aws ssm send-command --document-name "$doc_name" \
-            --parameters "{\"Host\": [\"$LB\"], \"Command\":[\"sub\"],\"Prefix\":[\"cdk\"],\"Topic\":[\"t1\"],\"Clients\":[\"200000\"],\"Interval\":[\"200\"]}" \
+            --parameters "$param" \
             --targets "[{\"Key\":\"tag:cluster\",\"Values\":[\"$cluster\"]},{\"Key\":\"tag:service\",\"Values\":[\"loadgen\"]}]" \
             --timeout-seconds 60 --max-concurrency "30" --max-errors "0" |  jq -r .Command.CommandId)
         wait_for_cmd_finish "$jobid"
-        jobid=$(aws ssm send-command --document-name "$doc_name" \
-            --parameters "{\"Host\": [\"$LB\"], \"Command\":[\"pub\"],\"Prefix\":[\"cdk\"],\"Topic\":[\"t1\"],\"Clients\":[\"200000\"],\"Interval\":[\"200\"], \"PubInterval\":[\"200\"]}" \
-            --targets "[{\"Key\":\"tag:cluster\",\"Values\":[\"$cluster\"]},{\"Key\":\"tag:service\",\"Values\":[\"loadgen\"]}]" \
-            --timeout-seconds 60 --max-concurrency "30" --max-errors "0" |  jq -r .Command.CommandId)
-        wait_for_cmd_finish "$jobid" 5
         ;;
 
     "collect_logs")

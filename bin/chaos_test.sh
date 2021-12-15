@@ -18,13 +18,24 @@ die() {
 gen_tc() {
     cluster=$1
     fault=$2
+    echo "test started at $(date -R)"
     # step 0: stop traffic
     echo "Stop Traffic"
-    $BASEDIR/send_cmd.sh "$cluster" "stop_traffic"
+    $BASEDIR/send_cmd.sh "$cluster" "stop_traffic" || echo "failed to stop traffic"
 
     # step 1: start traffic
     echo "Start Traffic"
-    $BASEDIR/send_cmd.sh "$cluster" "start_traffic" || die "stopped: start traffic failed"
+    LB="lb.int.$cluster"
+
+    ## sub clients: 200k, topic: $whildcard, rate: 5subs/s
+    $BASEDIR/send_cmd.sh "$cluster" "start_traffic" "{\"Host\": [\"$LB\"], \"Command\":[\"sub\"],\"Prefix\":[\"cdkS1\"],\"Topic\":[\"root/%c/1/+/abc/#\"],\"Clients\":[\"200000\"],\"Interval\":[\"200\"]}"
+
+    ## pub clients: 200k, topic: t1, rate:  pubs/s
+    $BASEDIR/send_cmd.sh "$cluster" "start_traffic" "{\"Host\": [\"$LB\"], \"Command\":[\"pub\"],\"Prefix\":[\"cdkP1\"],\"Topic\":[\"t1\"],\"Clients\":[\"200000\"],\"Interval\":[\"200\"], \"PubInterval\":[\"1000\"]}"
+
+    ## sub clients: 200, topic: t1, rate: 5 subs/s
+    $BASEDIR/send_cmd.sh "$cluster" "start_traffic" "{\"Host\": [\"$LB\"], \"Command\":[\"sub\"],\"Prefix\":[\"cdkS2\"],\"Topic\":[\"t1\"],\"Clients\":[\"200\"],\"Interval\":[\"200\"]}"
+
     # step 2: sleep for 5mins for steady state
     sleep 300;
     # step 3: inject faults
@@ -38,7 +49,11 @@ gen_tc() {
     echo "Collecting logs"
     $BASEDIR/send_cmd.sh "$cluster" "collect_logs" "$fault"|| die "stopped: collect_logs failed"
 
-    echo "test finished"
+
+    echo "Stop Traffic"
+    $BASEDIR/send_cmd.sh "$cluster" "stop_traffic" || echo "failed to stop traffic"
+
+    echo "test finished at $(date -R)"
 }
 
 # cluster name 'CDK_EMQX_CLUSTERNAME' when you deploy cdk
