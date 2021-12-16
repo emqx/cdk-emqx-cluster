@@ -17,6 +17,11 @@ All configs are optional, specify with `cdk deploy -c k1=v1 -c k2=v2`
 emqx_ins_type
 
 
+# EMQX instance type for Core nodes (RLOG DB backend)
+# default: same as emqx_ins_type
+emqx_core_ins_type
+
+
 # Number of EMQXs
 # default: 2
 emqx_n
@@ -220,7 +225,7 @@ CDK_EMQX_CLUSTERNAME=william cdk destroy CdkEmqxClusterStack
 
 For some more relevant performance tests, you can use larger instances. For a two node emqx cluster with one loadgen with a particular branch:
 ```bash
-CDK_EMQX_CLUSTERNAME=william cdk deploy --all -c emqx_src="git clone -b YOUR_BRANCH https://github.com/emqx/emqx" -c emqx_n=2 -c emqx_ins_type="m5.2xlarge" -c loadgen_ins_type="m5n.xlarge" -c emqx_ebs=20 
+CDK_EMQX_CLUSTERNAME=william cdk deploy --all -c emqx_src="git clone -b YOUR_BRANCH https://github.com/emqx/emqx" -c emqx_n=2 -c emqx_ins_type="m5.2xlarge" -c loadgen_ins_type="m5n.xlarge" -c emqx_ebs=20
 ```
 The `emqx_ebs` is needed since these instances do not have storage by default.
 

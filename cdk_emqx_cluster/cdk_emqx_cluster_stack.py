@@ -560,15 +560,19 @@ class CdkEmqxClusterStack(cdk.Stack):
             multipartUserData.add_part(
                 ec2.MultipartBody.from_user_data(user_data_nginx))
 
+            if isCore:
+                ins_type = self.emqx_core_ins_type
+            else:
+                ins_type = self.emqx_ins_type
 
-            if (self.emqx_ins_type[2] == 'g'): #Graviton2
+            if (ins_type[2] == 'g'): #Graviton2
                 ami = ubuntu_arm_ami
             else:
                 ami = ubuntu_x86_64_ami
 
             vm = ec2.Instance(self, id=name,
                               instance_type=ec2.InstanceType(
-                                  instance_type_identifier=self.emqx_ins_type),
+                                  instance_type_identifier=ins_type),
                               block_devices=blockdevs,
                               machine_image=ami,
                               user_data=multipartUserData,
@@ -822,6 +826,11 @@ class CdkEmqxClusterStack(cdk.Stack):
         # suggested m5.2xlarge
         self.emqx_ins_type = self.node.try_get_context(
             'emqx_ins_type') or 't3a.small'
+
+        # Instance size for core nodes (when using RLOG DB backend)
+        # defaults to `emqx_ins_type' if unspecified
+        self.emqx_core_ins_type = self.node.try_get_context(
+            'emqx_core_ins_type') or self.emqx_ins_type
 
         # Number of EMQXs
         self.numEmqx = int(self.node.try_get_context('emqx_n') or 2)
