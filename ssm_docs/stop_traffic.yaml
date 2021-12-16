@@ -29,4 +29,4 @@ mainSteps:
     runCommand:
     - |
       #!/bin/bash
-      pkill beam
+      pkill beam || echo "pkill failed"
