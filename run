@@ -15,4 +15,4 @@ docker run -e CDK_EMQX_CLUSTERNAME=${CDK_EMQX_CLUSTERNAME} --rm -it \
        -v ~/.aws:/root/.aws \
        -v $(pwd):/opt/ \
        -w /opt \
-       mycdk cdk "$@"
+       mycdk "$@"
