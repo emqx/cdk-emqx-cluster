@@ -1,4 +1,23 @@
 # This file is part of the emqx init script that will be appened to the user-data part
+
+cat >> /etc/sysctl.d/99-sysctl.conf <<EOF
+net.core.somaxconn=32768
+net.ipv4.tcp_max_syn_backlog=16384
+net.core.netdev_max_backlog=16384
+net.core.optmem_max=16777216
+net.ipv4.tcp_rmem='1024 4096 16777216'
+net.ipv4.tcp_wmem='1024 4096 16777216'
+net.ipv4.tcp_max_tw_buckets=1048576
+net.ipv4.tcp_fin_timeout=15
+net.core.rmem_default=262144000
+net.core.wmem_default=262144000
+net.core.rmem_max=262144000
+net.core.wmem_max=262144000
+net.ipv4.tcp_mem="378150000  504200000  756300000"
+EOF
+
+sysctl -p
+
 maybe_mount_data() {
   if [ -b /dev/nvme1n1 ]; then
   echo "Find extra data vol, format and mount..."
