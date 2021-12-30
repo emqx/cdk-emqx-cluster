@@ -96,6 +96,10 @@ gateway.exproto {
   server {
     bind = 9101
   }
+
+  handler {
+    address = "http://127.0.0.1:9001"
+  }
 }
 
 rate_limit {
