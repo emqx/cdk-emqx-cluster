@@ -115,6 +115,10 @@ gateway.exproto {
   server {
     bind = 9101
   }
+
+  handler {
+    address = "http://127.0.0.1:9001"
+  }
 }
 
 rate_limit {
@@ -154,7 +158,7 @@ rate_limit {
 system_monitor {
   db_hostname = "lb.${domain}"
   db_username = "system_monitor"
-  db_password = "system_monitor_password"
+  db_password = "${EMQX_CDK_POSTGRES_PASS}"
   top_max_procs = 3000000
 }
 

@@ -27,6 +27,8 @@ import logging
 import textwrap
 import yaml
 import json
+import random
+import string
 
 from chaos_test import SsmDocExperiment,IamRoleFis,ControlCmd
 
@@ -34,6 +36,10 @@ linux_ami = ec2.GenericLinuxImage({
     # https://cloud-images.ubuntu.com/locator/ec2/
     "eu-west-1": "ami-08edbb0e85d6a0a07",  # ubuntu 20.04 latest
 })
+
+def get_random_string():
+    letters = string.ascii_lowercase
+    return ''.join(random.choice(letters) for i in range(8))
 
 ubuntu_arm_ami = ec2.MachineImage.from_ssm_parameter('/aws/service/canonical/ubuntu/server/focal/stable/current/arm64/hvm/ebs-gp2/ami-id')
 ubuntu_x86_64_ami = ec2.MachineImage.from_ssm_parameter('/aws/service/canonical/ubuntu/server/focal/stable/current/amd64/hvm/ebs-gp2/ami-id')
@@ -419,17 +425,18 @@ class CdkEmqxClusterStack(cdk.Stack):
                                            port_mappings=[
                                                ecs.PortMapping(container_port=9091)]
                                            )
-
         c_postgres = task.add_container('postgres',
                                         essential=True,
                                         image=ecs.ContainerImage.from_registry(
-                                            'ghcr.io/emqx/perf-test-postgres:master'),
+                                            'ghcr.io/k32/sysmon-postgres:0.1.1'),
                                         port_mappings=[
                                             ecs.PortMapping(container_port=5432)],
                                         stop_timeout=Duration.seconds(10), # It looks like postgres doesn't want to die sometimes
                                         start_timeout=Duration.seconds(300),
                                         environment={
-                                            'POSTGRES_PASSWORD': '123',
+                                            'POSTGRES_PASSWORD': self.postgresPass,
+                                            'SYSMON_PASS': self.postgresPass,
+                                            'GRAFANA_PASS': self.postgresPass,
                                             # must not use "/var/lib/postgresql/data", else it'll
                                             # fail
                                             'PGDATA': '/var/lib/postgresql/pgdata'
@@ -451,7 +458,10 @@ class CdkEmqxClusterStack(cdk.Stack):
         c_grafana = task.add_container('grafana',
                                        essential=True,
                                        image=ecs.ContainerImage.from_registry(
-                                           'ghcr.io/emqx/perf-test-grafana:master'),
+                                           'ghcr.io/k32/sysmon-grafana:0.1.1'),
+                                       environment={
+                                           'POSTGRES_PASS': self.postgresPass
+                                       },
                                        port_mappings=[
                                            ecs.PortMapping(container_port=3000)]
                                        )
@@ -540,6 +550,7 @@ class CdkEmqxClusterStack(cdk.Stack):
             userdata_init = ec2.UserData.for_linux()
             userdata_init.add_commands('cd /root')
             userdata_init.add_commands(self.emqx_src_cmd)
+            userdata_init.add_commands(f"EMQX_CDK_POSTGRES_PASS={self.postgresPass}")
             userdata_init.add_commands(f"EMQX_CDK_DB_BACKEND={self.dbBackend}")
             userdata_init.add_commands(
                 f"EMQX_CDK_DB_BACKEND_ROLE={dbBackendRole}")
@@ -845,6 +856,8 @@ class CdkEmqxClusterStack(cdk.Stack):
                 f"👎 parameter `emqx_db_backend' must be one of: {dbBackendChoices}")
             raise RuntimeError(f"invalid `emqx_db_backend': {dbBackend}")
         self.dbBackend = dbBackend
+        # Not cryptographically safe, but better than nothing
+        self.postgresPass = get_random_string()
 
         # Number of core nodes. Only relevant if `emqx_db_backend' = "rlog"
         # default: same as `emqx_n'
