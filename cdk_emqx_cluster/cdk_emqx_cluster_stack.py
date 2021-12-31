@@ -208,6 +208,10 @@ class CdkEmqxClusterStack(cdk.Stack):
         key = self.ssh_key
         target = self.nlb.load_balancer_dns_name
 
+        # we let CDK create the first role for this service in the
+        # first instance and them use it in subsequent instances
+        vm_role = None
+
         for n in range(0, N):
             name = "loadgen-%d" % n
             bootScript = ec2.UserData.custom(loadgen_user_data)
@@ -275,10 +279,12 @@ class CdkEmqxClusterStack(cdk.Stack):
                                  user_data=multipartUserData,
                                  security_group=sg,
                                  key_name=key,
+                                 role=vm_role,
                                  vpc=vpc,
                                  source_dest_check=False
                                  )
-            self.attach_ssm_policy(lg_vm.role)
+            vm_role = lg_vm.role
+            self.attach_ssm_policy(vm_role)
             # add routes for traffic from loadgen
             i = 1
             for net in vpc.private_subnets:
@@ -517,6 +523,10 @@ class CdkEmqxClusterStack(cdk.Stack):
         self.emqx_vms = []
         self.emqx_core_nodes = []
 
+        # we let CDK create the first role for this service in the
+        # first instance and them use it in subsequent instances
+        vm_role = None
+
         for n in range(0, N):
             name = "emqx-%d" % n
             dnsname = name + self.domain
@@ -589,12 +599,14 @@ class CdkEmqxClusterStack(cdk.Stack):
                               user_data=multipartUserData,
                               security_group=sg,
                               key_name=key,
+                              role=vm_role,
                               vpc=vpc,
                               vpc_subnets=ec2.SubnetSelection(
                                   subnet_type=ec2.SubnetType.PRIVATE),
                               )
-            self.attach_ssm_policy(vm.role)
-            self.attach_s3_policy(vm.role)
+            vm_role = vm.role
+            self.attach_ssm_policy(vm_role)
+            self.attach_s3_policy(vm_role)
             self.emqx_vms.append(vm)
 
             r53.ARecord(self, id=dnsname,
@@ -648,6 +660,10 @@ class CdkEmqxClusterStack(cdk.Stack):
                                               for x in self.emqx_vms])
 
     def setup_etcd(self):
+        # we let CDK create the first role for this service in the
+        # first instance and them use it in subsequent instances
+        vm_role = None
+
         for n in range(0, 3):
             vpc = self.vpc
             zone = self.int_zone
@@ -676,8 +692,10 @@ class CdkEmqxClusterStack(cdk.Stack):
                                user_data=cloud_user_data,
                                security_group=sg,
                                key_name=key,
+                               role=vm_role,
                                vpc=vpc
                                )
+            vm_role = ins.role
             dnsname = "etcd%d" % n + self.domain
             r53.ARecord(self, id=dnsname,
                         record_name=dnsname,
