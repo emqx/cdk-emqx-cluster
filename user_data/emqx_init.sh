@@ -155,11 +155,11 @@ rate_limit {
   conn_bytes_in = infinity
 }
 
-system_monitor {
+sysmon.top {
   db_hostname = "lb.${domain}"
   db_username = "system_monitor"
   db_password = "${EMQX_CDK_POSTGRES_PASS}"
-  top_max_procs = 3000000
+  max_procs = 3000000
 }
 
 EOF
