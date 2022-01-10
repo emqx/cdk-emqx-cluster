@@ -437,7 +437,8 @@ class CdkEmqxClusterStack(cdk.Stack):
                                             'ghcr.io/k32/sysmon-postgres:0.1.2'),
                                         port_mappings=[
                                             ecs.PortMapping(container_port=5432)],
-                                        stop_timeout=Duration.seconds(10), # It looks like postgres doesn't want to die sometimes
+                                        # It looks like postgres doesn't want to die sometimes
+                                        stop_timeout=Duration.seconds(100),
                                         start_timeout=Duration.seconds(300),
                                         environment={
                                             'POSTGRES_PASSWORD': self.postgresPass,
