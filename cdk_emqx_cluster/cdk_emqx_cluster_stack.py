@@ -195,6 +195,7 @@ class CdkEmqxClusterStack(cdk.Stack):
                        % (self.bastion.instance_public_ip, self.mon_lb, self.mon_lb, self.mon_lb)
                        )
         core.CfnOutput(self, 'EFS ID:', value=self.shared_efs.file_system_id)
+        core.CfnOutput(self, 'Monitoring Postgres Password:', value=self.postgresPass)
 
         if self.kafka_ebs_vol_size:
             core.CfnOutput(self, 'KAFKA Brokers:', value=self.kafka.bootstrap_brokers)
@@ -877,7 +878,8 @@ class CdkEmqxClusterStack(cdk.Stack):
             raise RuntimeError(f"invalid `emqx_db_backend': {dbBackend}")
         self.dbBackend = dbBackend
         # Not cryptographically safe, but better than nothing
-        self.postgresPass = get_random_string()
+        self.postgresPass = self.node.try_get_context(
+            'emqx_monitoring_postgres_password') or get_random_string()
 
         # Number of core nodes. Only relevant if `emqx_db_backend' = "rlog"
         # default: same as `emqx_n'

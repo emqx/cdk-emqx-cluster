@@ -73,6 +73,13 @@ retain_efs
 # default: ghcr.io/emqx/emqx-builder/5.0-4:1.13.1-24.1.5-3-ubuntu20.04
 emqx_builder_image
 
+# Monitoring Postgres password
+# Set the password for the Postgres instance that is used by system_monitor
+# If unset, a random one will be generated.
+# If using a retained EFS, you should take note of the generated password
+# because it'll be persisted between clusters.
+emqx_monitoring_postgres_password
+
 ```
 
 ## Make sure you have AWS credentials in ~/.aws/
