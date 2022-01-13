@@ -69,6 +69,10 @@ emqx_src
 # default: False
 retain_efs
 
+# Docker image that'll be used to build EMQ X
+# default: ghcr.io/emqx/emqx-builder/5.0-4:1.13.1-24.1.5-3-ubuntu20.04
+emqx_builder_image
+
 ```
 
 ## Make sure you have AWS credentials in ~/.aws/

@@ -568,6 +568,7 @@ class CdkEmqxClusterStack(cdk.Stack):
             if not isCore:
                 userdata_init.add_commands(
                     f"EMQX_CDK_CORE_NODES={','.join(self.emqx_core_nodes)}")
+            userdata_init.add_commands(f"EMQX_BUILDER_IMAGE={self.emqx_builder_image}")
             userdata_init.add_commands(emqx_user_data)
 
             multipartUserData = ec2.MultipartUserData()
@@ -914,8 +915,14 @@ class CdkEmqxClusterStack(cdk.Stack):
         self.emqx_src_cmd = self.node.try_get_context(
             'emqx_src') or "git clone https://github.com/emqx/emqx"
 
+        # EMQX-Builder image that'll build the release
+        self.emqx_builder_image = self.node.try_get_context(
+            'emqx_builder_image') or "ghcr.io/emqx/emqx-builder/5.0-4:1.13.1-24.1.5-3-ubuntu20.04"
+
         logging.warning("👍🏼  Will deploy %d %s EMQX and %d %s Loadgens\n get emqx src by %s "
                         % (self.numEmqx, self.emqx_ins_type, self.numLg, self.loadgen_ins_type, self.emqx_src_cmd))
+        logging.warning(f"⚒  Image used to build EMQ X: {self.emqx_builder_image}")
+
         if self.emqx_ebs_vol_size:
             logging.warning("💾  with extra vol %G  for EMQX" %
                             int(self.emqx_ebs_vol_size))

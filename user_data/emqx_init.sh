@@ -18,6 +18,26 @@ EOF
 
 sysctl -p
 
+# we need docker to pull and use emqx-builder
+apt update
+apt install -y \
+    ca-certificates \
+    curl \
+    gnupg \
+    lsb-release
+
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
+  gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
+  $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+apt update
+apt install -y docker-ce docker-ce-cli containerd.io
+
+docker pull "$EMQX_BUILDER_IMAGE"
+
 maybe_mount_data() {
   if [ -b /dev/nvme1n1 ]; then
   echo "Find extra data vol, format and mount..."
@@ -39,7 +59,13 @@ maybe_install_from_src() {
   if [ -d emqx ]; then
     echo "Find emqx source code, install from source code..."
     cd emqx
-    HOME=/root make emqx-pkg
+    docker run --rm -i \
+           -v "$PWD":/emqx \
+           -w /emqx \
+           -e EMQX_NAME="emqx" \
+           -e HOME="/root" \
+           "$EMQX_BUILDER_IMAGE" \
+           bash -c "make emqx-pkg"
     dpkg -i ./_packages/emqx/*.deb
   fi
   popd
