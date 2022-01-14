@@ -449,6 +449,14 @@ class CdkEmqxClusterStack(cdk.Stack):
                                             # fail
                                             'PGDATA': '/var/lib/postgresql/pgdata'
                                         },
+                                        # uncomment to reset the WAL; it may resolve a
+                                        # stuck container after a
+                                        # redeploy.
+                                        # user="postgres",
+                                        # command=[
+                                        #     "pg_resetwal",
+                                        #     "/var/lib/postgresql/pgdata",
+                                        # ],
                                         # uncomment for troubleshooting
                                         # logging=ecs.LogDriver.aws_logs(stream_prefix="mon_postgres",
                                         #                                log_retention=aws_logs.RetentionDays.ONE_DAY,
