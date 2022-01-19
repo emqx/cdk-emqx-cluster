@@ -780,6 +780,8 @@ class CdkEmqxClusterStack(cdk.Stack):
                                        security_group=sg_bastion,
                                        instance_name="BastionHostLinux %s" % self.cluster_name,
                                        instance_type=ec2.InstanceType(instance_type_identifier="t3.nano"))
+        # allow uploading TSDB snapshots to S3
+        self.attach_s3_policy(bastion.role)
 
         bastion.instance.instance.add_property_override(
             "KeyName", self.ssh_key)
