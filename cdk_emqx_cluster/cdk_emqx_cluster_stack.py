@@ -674,6 +674,12 @@ class CdkEmqxClusterStack(cdk.Stack):
                                                   for x in self.emqx_vms])
 
     def setup_etcd(self):
+        # if there's no EMQ X nodes (for example, starting up cluster
+        # just to analyze past data from Prometheus/Postgres), we
+        # don't neet to spin up etcd
+        if self.numEmqx == 0:
+            return
+
         # we let CDK create the first role for this service in the
         # first instance and them use it in subsequent instances
         vm_role = None
