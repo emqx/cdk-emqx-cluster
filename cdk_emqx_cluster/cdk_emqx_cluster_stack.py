@@ -449,6 +449,14 @@ class CdkEmqxClusterStack(cdk.Stack):
                                             # fail
                                             'PGDATA': '/var/lib/postgresql/pgdata'
                                         },
+                                        # uncomment to reset the WAL; it may resolve a
+                                        # stuck container after a
+                                        # redeploy.
+                                        # user="postgres",
+                                        # command=[
+                                        #     "pg_resetwal",
+                                        #     "/var/lib/postgresql/pgdata",
+                                        # ],
                                         # uncomment for troubleshooting
                                         # logging=ecs.LogDriver.aws_logs(stream_prefix="mon_postgres",
                                         #                                log_retention=aws_logs.RetentionDays.ONE_DAY,
@@ -923,8 +931,22 @@ class CdkEmqxClusterStack(cdk.Stack):
         self.emqx_builder_image = self.node.try_get_context(
             'emqx_builder_image') or "ghcr.io/emqx/emqx-builder/5.0-4:1.13.1-24.1.5-3-ubuntu20.04"
 
-        logging.warning("👍🏼  Will deploy %d %s EMQX and %d %s Loadgens\n get emqx src by %s "
-                        % (self.numEmqx, self.emqx_ins_type, self.numLg, self.loadgen_ins_type, self.emqx_src_cmd))
+        if self.emqx_ins_type != self.emqx_core_ins_type:
+            logging.warning("👍🏼  Will deploy %d %s EMQX, %d %s EMQX, and %d %s Loadgens\n get emqx src by %s "
+                            % (self.numEmqx - self.numCoreNodes,
+                               self.emqx_ins_type,
+                               self.numCoreNodes,
+                               self.emqx_core_ins_type,
+                               self.numLg,
+                               self.loadgen_ins_type,
+                               self.emqx_src_cmd))
+        else:
+            logging.warning("👍🏼  Will deploy %d %s EMQX and %d %s Loadgens\n get emqx src by %s "
+                            % (self.numEmqx,
+                               self.emqx_ins_type,
+                               self.numLg,
+                               self.loadgen_ins_type,
+                               self.emqx_src_cmd))
         logging.warning(f"⚒  Image used to build EMQ X: {self.emqx_builder_image}")
 
         if self.emqx_ebs_vol_size:
