@@ -589,8 +589,9 @@ class CdkEmqxClusterStack(cdk.Stack):
                 ec2.MultipartBody.from_user_data(user_data_os_common))
             multipartUserData.add_part(
                 ec2.MultipartBody.from_user_data(userdata_init))
-            multipartUserData.add_part(
-                ec2.MultipartBody.from_user_data(user_data_nginx))
+            if self.enable_nginx:
+                multipartUserData.add_part(
+                    ec2.MultipartBody.from_user_data(user_data_nginx))
 
             if isCore:
                 ins_type = self.emqx_core_ins_type
@@ -640,7 +641,8 @@ class CdkEmqxClusterStack(cdk.Stack):
         listener = nlb.add_listener("port1883", port=1883)
         listenerTLS = nlb.add_listener(
             "port8883", port=8883)  # TLS, emqx terminataion
-        listenerTLSNginx = nlb.add_listener("port18883", port=18883)
+        if self.enable_nginx:
+            listenerTLSNginx = nlb.add_listener("port18883", port=18883)
         listenerQuic = nlb.add_listener(
             "port14567", port=14567, protocol=elbv2.Protocol.UDP)
         listenerUI = nlb.add_listener("port80", port=80)
@@ -665,10 +667,11 @@ class CdkEmqxClusterStack(cdk.Stack):
                                 port=8883,
                                 targets=[target.InstanceTarget(x)
                                          for x in self.emqx_vms])
-        listenerTLSNginx.add_targets('ec2',
-                                     port=18883,
-                                     targets=[target.InstanceTarget(x)
-                                              for x in self.emqx_vms])
+        if self.enable_nginx:
+            listenerTLSNginx.add_targets('ec2',
+                                         port=18883,
+                                         targets=[target.InstanceTarget(x)
+                                                  for x in self.emqx_vms])
 
     def setup_etcd(self):
         # we let CDK create the first role for this service in the
@@ -917,6 +920,16 @@ class CdkEmqxClusterStack(cdk.Stack):
         self.kafka_ebs_vol_size = self.node.try_get_context(
             'kafka_ebs') or None
 
+        # Enable Nginx
+        # Nginx is used for SSL termination for EMQ X.  But it spawns
+        # one worker process per machine core, so for large machines
+        # like `c6g.metal` it may take 19.2 % of the memory at rest.
+        enable_nginx = self.node.try_get_context('emqx_enable_nginx')
+        if enable_nginx:
+            self.enable_nginx = enable_nginx.lower() != "false"
+        else:
+            self.enable_nginx = True
+
         # Preserve EFS
         # set it to 'False' to create new tmp EFS that will be destoryed after cluster get destroyed.
         # set it to 'True' to create new and the EFS will be preserved after cluster get destroyed.
@@ -948,6 +961,9 @@ class CdkEmqxClusterStack(cdk.Stack):
                                self.loadgen_ins_type,
                                self.emqx_src_cmd))
         logging.warning(f"⚒  Image used to build EMQ X: {self.emqx_builder_image}")
+
+        if not self.enable_nginx:
+            logging.warning("🔓  Will *not* deploy Nginx (SSL connection for EMQ X will be disabled)")
 
         if self.emqx_ebs_vol_size:
             logging.warning("💾  with extra vol %G  for EMQX" %

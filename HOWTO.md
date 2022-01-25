@@ -80,6 +80,13 @@ emqx_builder_image
 # because it'll be persisted between clusters.
 emqx_monitoring_postgres_password
 
+# Enable Nginx
+# Nginx is used for SSL termination for EMQ X.  But it spawns
+# one worker process per machine core, so for large machines
+# like `c6g.metal` it may take 19.2 % of the memory at rest.
+# default: True
+emqx_enable_nginx
+
 ```
 
 ## Make sure you have AWS credentials in ~/.aws/
