@@ -70,7 +70,7 @@ emqx_src
 retain_efs
 
 # Docker image that'll be used to build EMQ X
-# default: ghcr.io/emqx/emqx-builder/5.0-4:1.13.1-24.1.5-3-ubuntu20.04
+# default: ghcr.io/emqx/emqx-builder/5.0-5:1.13.2-24.1.5-4-ubuntu20.04
 emqx_builder_image
 
 # Monitoring Postgres password
