@@ -948,7 +948,7 @@ class CdkEmqxClusterStack(cdk.Stack):
 
         # EMQX-Builder image that'll build the release
         self.emqx_builder_image = self.node.try_get_context(
-            'emqx_builder_image') or "ghcr.io/emqx/emqx-builder/5.0-4:1.13.1-24.1.5-3-ubuntu20.04"
+            'emqx_builder_image') or "ghcr.io/emqx/emqx-builder/5.0-5:1.13.2-24.1.5-4-ubuntu20.04"
 
         if self.emqx_ins_type != self.emqx_core_ins_type:
             logging.warning("👍🏼  Will deploy %d %s EMQX, %d %s EMQX, and %d %s Loadgens\n get emqx src by %s "
