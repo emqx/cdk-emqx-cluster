@@ -71,12 +71,12 @@ maybe_install_from_src() {
   popd
 }
 
-maybe_cluster_config_overrides_v5() {
+maybe_config_overrides_v5() {
   if [[ "${EMQX_CDK_DB_BACKEND}" = "rlog" ]]
   then
     case "${EMQX_CDK_DB_BACKEND_ROLE}" in
       core)
-        cat > /etc/emqx/cluster-override.conf <<EOF
+        cat >> /etc/emqx/emqx.conf <<EOF
 db {
   backend = "rlog"
   role = "core"
@@ -85,7 +85,7 @@ EOF
         ;;
 
       replicant)
-        cat > /etc/emqx/cluster-override.conf <<EOF
+        cat >> /etc/emqx/emqx.conf <<EOF
 db {
   backend = "rlog"
   role = "replicant"
@@ -232,7 +232,7 @@ case "${EMQX_VERSION}" in
     ;;
   5*)
     config_overrides_v5
-    maybe_cluster_config_overrides_v5
+    maybe_config_overrides_v5
     ;;
   *)
     echo "Unknown EMQX_VERSION: ${EMQX_VERSION}"
