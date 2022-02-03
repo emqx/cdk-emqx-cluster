@@ -65,7 +65,7 @@ maybe_install_from_src() {
            -e EMQX_NAME="emqx" \
            -e HOME="/root" \
            "$EMQX_BUILDER_IMAGE" \
-           bash -c "make emqx-pkg"
+           bash -c "make $EMQX_BUILD_PROFILE"
     dpkg -i ./_packages/emqx/*.deb
   fi
   popd

@@ -87,6 +87,12 @@ emqx_monitoring_postgres_password
 # default: True
 emqx_enable_nginx
 
+# EMQ X Build Profile
+# Which profile to build EMQ X with, as in "make $PROFILE".
+# To build with Elixir, use "emqx-elixirpkg".
+# default: emqx-pkg
+emqx_build_profile
+
 ```
 
 ## Make sure you have AWS credentials in ~/.aws/
