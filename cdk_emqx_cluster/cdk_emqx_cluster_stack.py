@@ -472,7 +472,7 @@ class CdkEmqxClusterStack(cdk.Stack):
                                            'ghcr.io/k32/sysmon-grafana:1.0.0'),
                                        environment={
                                            'POSTGRES_PASS': self.postgresPass,
-                                           'GF_AUTH_ANONYMOUS_ENABLED': true
+                                           'GF_AUTH_ANONYMOUS_ENABLED': "true"
                                        },
                                        port_mappings=[
                                            ecs.PortMapping(container_port=3000)]
