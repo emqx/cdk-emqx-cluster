@@ -186,6 +186,7 @@ sysmon.top {
   db_username = "system_monitor"
   db_password = "${EMQX_CDK_POSTGRES_PASS}"
   max_procs = 3000000
+  sample_interval = 5s
 }
 
 EOF
