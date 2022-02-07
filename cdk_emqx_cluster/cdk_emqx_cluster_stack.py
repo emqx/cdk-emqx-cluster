@@ -32,11 +32,6 @@ import string
 
 from chaos_test import SsmDocExperiment,IamRoleFis,ControlCmd
 
-linux_ami = ec2.GenericLinuxImage({
-    # https://cloud-images.ubuntu.com/locator/ec2/
-    "eu-west-1": "ami-08edbb0e85d6a0a07",  # ubuntu 20.04 latest
-})
-
 def get_random_string():
     letters = string.ascii_lowercase
     return ''.join(random.choice(letters) for i in range(8))
@@ -709,7 +704,7 @@ class CdkEmqxClusterStack(cdk.Stack):
             ins = ec2.Instance(self, id="etsd.%d" % n,
                                instance_type=ec2.InstanceType(
                                    instance_type_identifier="t3a.nano"),
-                               machine_image=linux_ami,
+                               machine_image=ubuntu_x86_64_ami,
                                user_data=cloud_user_data,
                                security_group=sg,
                                key_name=key,
