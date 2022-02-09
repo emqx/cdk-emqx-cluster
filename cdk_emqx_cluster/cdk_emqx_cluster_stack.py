@@ -1,4 +1,5 @@
 from aws_cdk import core as cdk
+from distutils.util import strtobool
 
 # For consistency with other languages, `cdk` is the preferred import name for
 # the CDK's core module.  The following line also imports it as `core` for use
@@ -867,7 +868,8 @@ class CdkEmqxClusterStack(cdk.Stack):
 
     def read_param(self):
         # CHAOS_READY, if true, cluster is chaos ready and able to accept chaos tests.
-        self.is_chaos_ready = bool(self.node.try_get_context('chaos'))
+        self.is_chaos_ready = self.node.try_get_context('chaos') or 'False'
+        self.is_chaos_ready = strtobool(self.is_chaos_ready)
 
         # EMQX Instance Type
         # https://aws.amazon.com/ec2/instance-types/
@@ -937,7 +939,9 @@ class CdkEmqxClusterStack(cdk.Stack):
         # set it to 'False' to create new tmp EFS that will be destoryed after cluster get destroyed.
         # set it to 'True' to create new and the EFS will be preserved after cluster get destroyed.
         # set it to FIS id (like 'fs-0c86dd7fcd8ca836c') to reuse the preserved EFS without create new one.
-        self.retain_efs = self.node.try_get_context('retain_efs') or False
+        self.retain_efs = self.node.try_get_context('retain_efs')
+        if isinstance(self.retain_efs, str) and not self.retain_efs.startswith('fs-'):
+            self.retain_efs = strtobool(self.retain_efs)
 
         # EMQX source
         self.emqx_src_cmd = self.node.try_get_context(
@@ -1086,8 +1090,7 @@ class CdkEmqxClusterStack(cdk.Stack):
             peer=self.sg, connection=ec2.Port.all_traffic())
 
         fsid = 'shared-data' + self.cluster_name
-
-        if self.retain_efs and self.retain_efs.startswith('fs-'):
+        if isinstance(self.retain_efs, str) and self.retain_efs.startswith('fs-'):
             # reuse existing EFS
             fsid = self.retain_efs
             self.shared_efs = efs.FileSystem.from_file_system_attributes(self, id=fsid, security_group=self.sg_efs_mt,
@@ -1102,7 +1105,7 @@ class CdkEmqxClusterStack(cdk.Stack):
                                                       )
         else:
             # Create new one with RemovalPolicy flag
-            if bool(self.retain_efs):
+            if self.retain_efs:
                 remove_policy = core.RemovalPolicy.RETAIN
             else:
                 remove_policy = core.RemovalPolicy.DESTROY
