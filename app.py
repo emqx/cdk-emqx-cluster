@@ -11,7 +11,7 @@ from aws_cdk import core as cdk
 from aws_cdk import core
 
 from cdk_emqx_cluster.cdk_emqx_cluster_stack import CdkEmqxClusterStack
-from cdk_emqx_cluster.chaos_test import CdkChaosTest
+from cdk_emqx_cluster.cdk_chaos_test import CdkChaosTest
 
 
 app = core.App()
@@ -19,7 +19,7 @@ stack_name = os.getenv('CDK_EMQX_CLUSTERNAME')
 if not stack_name:
     sys.exit("env CDK_EMQX_CLUSTERNAME is not set")
 
-CdkEmqxClusterStack(app, "CdkEmqxClusterStack", stack_name = stack_name
+emqx = CdkEmqxClusterStack(app, "CdkEmqxClusterStack", stack_name = stack_name
     # If you don't specify 'env', this stack will be environment-agnostic.
     # Account/Region-dependent features and context lookups will not work,
     # but a single synthesized template can be deployed anywhere.
@@ -38,6 +38,9 @@ CdkEmqxClusterStack(app, "CdkEmqxClusterStack", stack_name = stack_name
     )
 
 # Stack for running chaos test including SSM and FIS resources
-CdkChaosTest(app, "CDKChaosTest", stack_name = stack_name + 'chaostest', cluster_name = stack_name)
+CdkChaosTest(app, "CDKChaosTest", stack_name = stack_name + 'chaostest'
+             , target_stack = emqx
+             , cluster_name = stack_name)
+
 
 app.synth()

@@ -33,6 +33,8 @@ setuptools.setup(
         "aws-cdk.aws-s3==1.134.0",
         "aws-cdk.aws-efs==1.134.0",
         "aws-cdk.aws-msk==1.134.0",
+        "aws-cdk.aws-stepfunctions==1.134.0",
+        "aws-cdk.aws-stepfunctions-tasks==1.134.0",
         "pyyaml"
     ],
 
