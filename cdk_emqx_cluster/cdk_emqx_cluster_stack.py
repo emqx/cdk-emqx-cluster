@@ -186,8 +186,11 @@ class CdkEmqxClusterStack(cdk.Stack):
                        value=self.bastion.instance_public_ip)
         core.CfnOutput(self, "Hosts are", value='\n'.join(self.hosts))
         core.CfnOutput(self, "SSH Commands for Access",
-                       value="ssh -A -l ec2-user %s -L 8888:%s:80 -L 13000:%s:3000 -L 19090:%s:9090"
-                       % (self.bastion.instance_public_ip, self.mon_lb, self.mon_lb, self.mon_lb)
+                       value=f"ssh -A -l ec2-user {self.bastion.instance_public_ip} "
+                             f"-L 8888:{self.mon_lb}:80 "
+                             f"-L 13000:{self.mon_lb}:3000 "
+                             f"-L 19090:{self.mon_lb}:9090 "
+                             f"-L 15432:{self.mon_lb}:5432 "
                        )
         core.CfnOutput(self, 'EFS ID:', value=self.shared_efs.file_system_id)
         core.CfnOutput(self, 'Monitoring Postgres Password:', value=self.postgresPass)
