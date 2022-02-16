@@ -15,6 +15,7 @@ die() {
     exit 1
 }
 
+
 gen_tc() {
     cluster=$1
     fault=$2
@@ -38,6 +39,10 @@ gen_tc() {
 
     # step 2: sleep for 5mins for steady state
     sleep 300;
+    ts_warmup_finish=$(date '+%s')
+    echo "Warmup finish at ${ts_warmup_finish}"
+    $BASEDIR/check_metrics.py "http://127.0.0.1:19090" "$ts_warmup_finish" 5m
+
     # step 3: inject faults
     echo "Inject fault: $fault:"
     jobid=$($BASEDIR/inject_fault.sh "$cluster" "$fault" | jq -r '.experiment.id');
@@ -45,10 +50,13 @@ gen_tc() {
 
     # step 4: wait for traffic to back to normal
     sleep 300;
+    ts_recover_finish=$(date '+%s')
+    echo "Recover finish at ${ts_recover_finish}"
+    $BASEDIR/check_metrics.py "http://127.0.0.1:19090" "$ts_warmup_finish" 5m
+
     # step 5: collect logs
     echo "Collecting logs"
     $BASEDIR/send_cmd.sh "$cluster" "collect_logs" "$fault"|| die "stopped: collect_logs failed"
-
 
     echo "Stop Traffic"
     $BASEDIR/send_cmd.sh "$cluster" "stop_traffic" || echo "failed to stop traffic"

@@ -33,6 +33,7 @@ setuptools.setup(
         "aws-cdk.aws-s3==1.134.0",
         "aws-cdk.aws-efs==1.134.0",
         "aws-cdk.aws-msk==1.134.0",
+        "prometheus-api-client",
         "pyyaml"
     ],
 
