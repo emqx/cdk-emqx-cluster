@@ -370,7 +370,7 @@ class CdkEmqxClusterStack(cdk.Stack):
         task = ecs.FargateTaskDefinition(self,
                                          id='MonitorTask',
                                          cpu=512,
-                                         memory_limit_mib=2048,
+                                         memory_limit_mib=4096,
                                          volumes=[
                                              self.prom_data_vol,
                                              self.pgsql_data_vol,
