@@ -952,7 +952,7 @@ class CdkEmqxClusterStack(cdk.Stack):
 
         # EMQX-Builder image that'll build the release
         self.emqx_builder_image = self.node.try_get_context(
-            'emqx_builder_image') or "ghcr.io/emqx/emqx-builder/5.0-5:1.13.2-24.1.5-4-ubuntu20.04"
+            'emqx_builder_image') or "ghcr.io/emqx/emqx-builder/5.0-8:1.13.3-24.2.1-1-ubuntu20.04"
 
         # EMQ X profile to be built with "make $PROFILE"
         self.emqx_build_profile = self.node.try_get_context(
