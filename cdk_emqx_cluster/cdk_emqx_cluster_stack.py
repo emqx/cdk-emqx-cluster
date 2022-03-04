@@ -31,7 +31,7 @@ import json
 import random
 import string
 
-from chaos_test import SsmDocExperiment,IamRoleFis,ControlCmd
+from cdk_chaos_test import SsmDocExperiment,IamRoleFis,ControlCmd
 
 def get_random_string():
     letters = string.ascii_lowercase

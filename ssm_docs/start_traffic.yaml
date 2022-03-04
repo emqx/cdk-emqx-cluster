@@ -64,6 +64,7 @@ mainSteps:
     runCommand:
     - |
       #!/bin/bash
+      set -e
       ulimit -n 8000000
       cd /root/emqtt-bench
       ipaddrs=$(ip addr |grep -o '192.*/32' | sed 's#/32##g' | paste -s -d , -)
@@ -81,6 +82,6 @@ mainSteps:
            ;;
       esac
 
-      nohup _build/default/bin/emqtt_bench "{{ Command }}" -h "{{ Host }}" -t "{{ Topic }}" -c "{{ Clients }}" --prefix "{{ Prefix }}"  -i {{ Interval }} ${extra_args[*]} --ifaddr $ipaddrs \
+      nohup ./emqtt_bench "{{ Command }}" -h "{{ Host }}" -t "{{ Topic }}" -c "{{ Clients }}" --prefix "{{ Prefix }}"  -i {{ Interval }} ${extra_args[*]} --ifaddr $ipaddrs \
         >run.log.`date +%s` 2>&1 &
       exit 0;
