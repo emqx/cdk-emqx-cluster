@@ -706,7 +706,7 @@ class CdkEmqxClusterStack(cdk.Stack):
                                          'echo ETCD_INITIAL_CLUSTER="infra0=http://etcd0${EMQX_CLUSTER_DOMAIN}:2380,infra1=http://etcd1${EMQX_CLUSTER_DOMAIN}:2380,infra2=http://etcd2${EMQX_CLUSTER_DOMAIN}:2380" >> /etc/default/etcd',
                                          'systemctl restart etcd'
                                          )
-            ins = ec2.Instance(self, id="etsd.%d" % n,
+            ins = ec2.Instance(self, id="etcd.%d" % n,
                                instance_type=ec2.InstanceType(
                                    instance_type_identifier="t3a.nano"),
                                machine_image=ubuntu_x86_64_ami,
