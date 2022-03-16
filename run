@@ -11,7 +11,9 @@ fi
 [ -z ${CDK_EMQX_CLUSTERNAME+x} ] &&
     CDK_EMQX_CLUSTERNAME=$(git config --get user.name | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]//g')
 
-docker run -e CDK_EMQX_CLUSTERNAME=${CDK_EMQX_CLUSTERNAME} --rm -it \
+docker run -e AWS_PROFILE="${AWS_PROFILE:-default}" \
+       -e CDK_EMQX_CLUSTERNAME=${CDK_EMQX_CLUSTERNAME} \
+       --rm -it \
        -v ~/.aws:/root/.aws \
        -v $(pwd):/opt/ \
        -w /opt \
