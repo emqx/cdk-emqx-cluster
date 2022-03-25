@@ -2,7 +2,7 @@
 
 ## Clone this repo and cd to project root
 ```bash
-git clone git@github.com:qzhuyan/cdk-emqx-cluster.git
+git clone git@github.com:emqx/cdk-emqx-cluster.git
 cd cdk-emqx-cluster
 ```
 ## Decide cluster context parameters
@@ -103,13 +103,6 @@ emqx_build_profile
 [default]
 region = eu-west-1
 output = json
-```
-
-## Start cdk docker container
-
-``` bash
-docker run --rm -it -v ~/.aws:/root/.aws -v $(pwd):/opt/app contino/aws-cdk bash
-
 ```
 
 ## Run cdk in docker
@@ -220,10 +213,7 @@ ssh etcd0
 
 # Provision Grafana Dashboards
 
-```bash
-# In this project root
-~/./bin/grafana_setup.sh
-
+```
 # Monitoring
 
 Open web browser and access the grafana via localhost:13000
