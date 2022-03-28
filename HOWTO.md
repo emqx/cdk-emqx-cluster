@@ -53,12 +53,15 @@ emqx_ebs
 # default: null, (no kafka)
 kafka_ebs
 
-# Specify how to fetch emqx package
-# either by downloading deb
-# emqx_src="wget https://www.emqx.io/downloads/broker/v4.3.0/emqx-ubuntu20.04-4.3.0-amd64.deb"
-# OR
-# build from src
-# emqx_src="git clone -b some_branch https://github.com/emqx/emqx"
+# Specify how to fetch emqx package by 
+# 
+# - Download deb file from web
+#   emqx_src="wget https://www.emqx.io/downloads/broker/v4.3.0/emqx-ubuntu20.04-4.3.0-amd64.deb"
+# - Fetch deb file from S3. Note, emqx node only has access to cluster bucket: s3://emqx-cdk-cluster/${cluster_name}
+#   emqx_src="aws s3 cp s3://emqx-cdk-cluster/william-k2/emqx-5.0.0-beta.3-7f31cd08-otp24.2.1-ubuntu20.04-amd64.deb ./"
+# - build from src
+#   emqx_src="git clone -b some_branch https://github.com/emqx/emqx"
+#
 # default: "git clone https://github.com/emqx/emqx"
 emqx_src
 

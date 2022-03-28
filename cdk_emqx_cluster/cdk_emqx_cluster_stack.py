@@ -916,7 +916,7 @@ class CdkEmqxClusterStack(cdk.Stack):
         # LOADGEN Instance Type
         # suggested m5n.xlarge
         self.loadgen_ins_type = self.node.try_get_context(
-            'loadgen_ins_type') or 't3a.micro'
+            'loadgen_ins_type') or 't3a.small'
 
         # Number of LOADGENS
         self.numLg = int(self.node.try_get_context('lg_n') or 1)
