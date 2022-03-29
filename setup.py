@@ -31,6 +31,7 @@ setuptools.setup(
         "aws-cdk.aws-iam==1.134.0",
         "aws-cdk.aws-ssm==1.134.0",
         "aws-cdk.aws-s3==1.134.0",
+        "aws-cdk.aws-s3-deployment==1.134.0",
         "aws-cdk.aws-efs==1.134.0",
         "aws-cdk.aws-msk==1.134.0",
         "aws-cdk.aws-stepfunctions==1.134.0",

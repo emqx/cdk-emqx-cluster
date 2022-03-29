@@ -227,6 +227,11 @@ maybe_install_license() {
   fi
 }
 
+install_helpers(){
+  cluster=$(hostname -f | cut -d . -f 3)
+  aws s3 cp --recursive "s3://emqx-cdk-cluster/${cluster}/bin" /usr/local/bin/
+}
+
 # Assume we have emqx src in PWD
 # emqx src is either deb file or git src tree
 
@@ -249,4 +254,5 @@ case "${EMQX_VERSION}" in
 esac
 
 maybe_install_license
+install_helpers
 systemctl start emqx
