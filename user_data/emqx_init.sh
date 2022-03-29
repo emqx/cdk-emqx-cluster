@@ -18,25 +18,32 @@ EOF
 
 sysctl -p
 
-# we need docker to pull and use emqx-builder
-apt update
-apt install -y \
+install_docker() {
+  # we need docker to pull and use emqx-builder
+  apt update
+  apt install -y \
     ca-certificates \
     curl \
     gnupg \
     lsb-release
 
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
-  gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
+    gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
 
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
-  $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+  echo \
+    "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
+    $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-apt update
-apt install -y docker-ce docker-ce-cli containerd.io
+  apt update
+  apt install -y docker-ce docker-ce-cli containerd.io
 
-docker pull "$EMQX_BUILDER_IMAGE"
+  docker pull "$EMQX_BUILDER_IMAGE"
+}
+
+disable_docker() {
+  systemctl stop docker
+  systemctl disable docker
+}
 
 maybe_mount_data() {
   if [ -b /dev/nvme1n1 ]; then
@@ -58,6 +65,7 @@ maybe_install_from_src() {
   pushd ./
   if [ -d emqx ]; then
     echo "Find emqx source code, install from source code..."
+    install_docker
     cd emqx
     docker run --rm -i \
            -v "$PWD":/emqx \
@@ -67,6 +75,7 @@ maybe_install_from_src() {
            "$EMQX_BUILDER_IMAGE" \
            bash -c "make $EMQX_BUILD_PROFILE"
     dpkg -i ./_packages/emqx/*.deb
+    disable_docker
   fi
   popd
 }

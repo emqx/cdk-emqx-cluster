@@ -11,8 +11,6 @@ EOF
 
 sysctl -p
 
-domain=$(dnsdomainname)
-
 cd /root/
 git clone -b "master" https://github.com/emqx/emqtt-bench.git
 cd emqtt-bench
