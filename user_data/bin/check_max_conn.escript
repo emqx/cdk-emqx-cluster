@@ -118,5 +118,5 @@ print_stats() ->
                    (Accepted - LastAccepted) * 1000 / (Now-LastAt)
            end,
     put(last_accept, {Accepted, Now}),
-    io:format("Rate: ~p/s,Current: ~p,Accepted:~p,Closed:~p,Error~p~n",
+    io:format("Rate: ~p/s, Current: ~p, Accepted: ~p,Closed: ~p, Error: ~p~n",
               [Rate, Current, Accepted, Closed, Error]).
