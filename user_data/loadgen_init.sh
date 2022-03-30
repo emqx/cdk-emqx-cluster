@@ -15,3 +15,6 @@ cd /root/
 git clone -b "master" https://github.com/emqx/emqtt-bench.git
 cd emqtt-bench
 HOME=/root DIAGNOSTIC=1 make
+
+cluster=$(hostname -f | cut -d . -f 3)
+aws s3 cp --recursive "s3://emqx-cdk-cluster/${cluster}/bin" /usr/local/bin/

@@ -18,6 +18,7 @@ from aws_cdk import (core as cdk, aws_ec2 as ec2, aws_ecs as ecs,
                      aws_iam as iam,
                      aws_ssm as ssm,
                      aws_s3 as s3,
+                     aws_s3_deployment as s3deploy,
                      aws_efs as efs,
                      aws_msk as msk,
                      aws_ecs_patterns as ecs_patterns)
@@ -30,6 +31,7 @@ import yaml
 import json
 import random
 import string
+import os
 
 from cdk_chaos_test import SsmDocExperiment,IamRoleFis,ControlCmd
 
@@ -306,6 +308,7 @@ class CdkEmqxClusterStack(cdk.Stack):
 
             if self.user_defined_tags:
                 core.Tags.of(ins).add(*self.user_defined_tags)
+            self.attach_s3_policy(vm_role)
             core.Tags.of(lg_vm).add('service', 'loadgen')
             core.Tags.of(lg_vm).add('cluster', self.cluster_name)
 
@@ -779,10 +782,17 @@ class CdkEmqxClusterStack(cdk.Stack):
 
     def setup_s3(self):
         self.s3_bucket_name = 'emqx-cdk-cluster'
-        if not s3.Bucket.from_bucket_name(self, self.s3_bucket_name, self.s3_bucket_name):
-            s3.Bucket(self, id=self.s3_bucket_name, auto_delete_objects=False,
-                      bucket_name=self.s3_bucket_name,
-                      )
+        Bucket = s3.Bucket.from_bucket_name(self, self.s3_bucket_name, self.s3_bucket_name)
+        if not Bucket:
+            Bucket = s3.Bucket(self, id=self.s3_bucket_name, auto_delete_objects=False,
+                               bucket_name=self.s3_bucket_name,
+                               )
+
+        s3deploy.BucketDeployment(self, "DeployHelperScripts",
+                                  sources=[s3deploy.Source.asset(os.path.join('./user_data', 'bin'))],
+                                  destination_bucket=Bucket,
+                                  destination_key_prefix=f"{self.cluster_name}/bin/"
+                                  )
 
     def setup_bastion(self):
         """
