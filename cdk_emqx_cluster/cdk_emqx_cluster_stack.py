@@ -35,10 +35,6 @@ import os
 
 from cdk_chaos_test import SsmDocExperiment,IamRoleFis,ControlCmd
 
-def get_random_string():
-    letters = string.ascii_lowercase
-    return ''.join(random.choice(letters) for i in range(8))
-
 ubuntu_arm_ami = ec2.MachineImage.from_ssm_parameter('/aws/service/canonical/ubuntu/server/focal/stable/current/arm64/hvm/ebs-gp2/ami-id')
 ubuntu_x86_64_ami = ec2.MachineImage.from_ssm_parameter('/aws/service/canonical/ubuntu/server/focal/stable/current/amd64/hvm/ebs-gp2/ami-id')
 
@@ -151,11 +147,11 @@ class CdkEmqxClusterStack(cdk.Stack):
 
         self.hosts = []
 
-        # Read context params
-        self.read_param()
-
         # Prepare infrastructure
         self.set_cluster_name()
+
+        # Read context params
+        self.read_param()
 
         self.setup_ssh_key()
         self.setup_s3()
@@ -908,9 +904,8 @@ class CdkEmqxClusterStack(cdk.Stack):
                 f"👎 parameter `emqx_db_backend' must be one of: {dbBackendChoices}")
             raise RuntimeError(f"invalid `emqx_db_backend': {dbBackend}")
         self.dbBackend = dbBackend
-        # Not cryptographically safe, but better than nothing
         self.postgresPass = self.node.try_get_context(
-            'emqx_monitoring_postgres_password') or get_random_string()
+            'emqx_monitoring_postgres_password') or self.cluster_name
 
         # Number of core nodes. Only relevant if `emqx_db_backend' = "rlog"
         # default: same as `emqx_n'
