@@ -409,6 +409,7 @@ class CdkEmqxClusterStack(cdk.Stack):
                                               "--storage.tsdb.path=/prometheus/tsdb_data",
                                               "--web.console.libraries=/usr/share/prometheus/console_libraries",
                                               "--web.console.templates=/usr/share/prometheus/consoles",
+                                              "--storage.tsdb.retention.time=1y",
                                               "--web.enable-admin-api"
                                           ],
                                           # uncomment for troubleshooting
