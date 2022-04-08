@@ -4,7 +4,12 @@ main(["-s", Port, Parallel]) ->
     process_flag(trap_exit, true),
     NumberOfAcceptors = list_to_integer(Parallel),
     {ok, LPort} = gen_tcp:listen(list_to_integer(Port), [{backlog, NumberOfAcceptors*100}]),
-    ok = persistent_term:put(counter, counters:new(3, [write_concurrency])),
+    %% Counters
+    %% 1: Conn Accepted
+    %% 2: Conn Closed
+    %% 3: Conn Error
+    %% 4: Conn Timeout
+    ok = persistent_term:put(counter, counters:new(10, [write_concurrency])),
     lists:foreach(
       fun(X) ->
               spawn_link(fun() -> acceptor_loop(LPort, X) end)
@@ -59,14 +64,15 @@ run_client(Host, Port, Id, Addrs, Offset) when Offset > length(Addrs) ->
 run_client(Host, Port, Id, Addrs, Offset) ->
     Addr = lists:nth(Offset, Addrs),
     Cnt = persistent_term:get(counter),
-    case gen_tcp:connect(Host, Port, [{ip, Addr}]) of
+    case gen_tcp:connect(Host, Port, [{ip, Addr}], 1000) of
         {ok, _Port} ->
-            ok;
+            ok = counters:add(Cnt, 1, 1);
+        {ok, timeout} ->
+            ok = counters:add(Cnt, 4, 1);
         {error, _} = E ->
             io:format("Error ~p to connect with local addr ~p~n", [E, Addr]),
             exit({conn_error, E})
     end,
-    ok = counters:add(Cnt, 1, 1),
     receive
         {tcp_closed, _Socket} ->
             ok = counters:add(Cnt, 2, 1);
@@ -110,6 +116,7 @@ print_stats() ->
     Accepted = counters:get(Cnt, 1),
     Closed = counters:get(Cnt, 2),
     Error = counters:get(Cnt, 3),
+    Timeout = counters:get(Cnt, 4),
     Current = Accepted - Closed,
     Now = erlang:monotonic_time(millisecond),
     Rate = case get(last_accept) of
@@ -118,5 +125,5 @@ print_stats() ->
                    (Accepted - LastAccepted) * 1000 / (Now-LastAt)
            end,
     put(last_accept, {Accepted, Now}),
-    io:format("Rate: ~p/s, Current: ~p, Accepted: ~p,Closed: ~p, Error: ~p~n",
-              [Rate, Current, Accepted, Closed, Error]).
+    io:format("Rate: ~p/s, Current: ~p, Accepted: ~p, Closed: ~p, Error: ~p, Timeout: ~p~n",
+              [Rate, Current, Accepted, Closed, Error, Timeout]).
