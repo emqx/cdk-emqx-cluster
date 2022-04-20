@@ -190,6 +190,7 @@ class CdkEmqxClusterStack(cdk.Stack):
                              f"-L 13000:{self.mon_lb}:3000 "
                              f"-L 19090:{self.mon_lb}:9090 "
                              f"-L 15432:{self.mon_lb}:5432 "
+                             "2>/dev/null"
                        )
         core.CfnOutput(self, 'EFS ID:', value=self.shared_efs.file_system_id)
         core.CfnOutput(self, 'Monitoring Postgres Password:', value=self.postgresPass)
