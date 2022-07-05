@@ -21,6 +21,7 @@ from aws_cdk import (core as cdk, aws_ec2 as ec2, aws_ecs as ecs,
                      aws_s3_deployment as s3deploy,
                      aws_efs as efs,
                      aws_msk as msk,
+                     aws_eks as eks,
                      aws_ecs_patterns as ecs_patterns)
 from aws_cdk.core import Duration, CfnParameter, RemovalPolicy
 from base64 import b64encode
@@ -163,6 +164,7 @@ class CdkEmqxClusterStack(cdk.Stack):
 
         # Create Application Services
         self.setup_kafka()
+        self.setup_pulsar()
         self.setup_emqx(self.numEmqx)
         self.setup_etcd()
         self.setup_loadgen(self.numLg)
@@ -965,6 +967,13 @@ class CdkEmqxClusterStack(cdk.Stack):
         self.emqx_build_profile = self.node.try_get_context(
             'emqx_build_profile') or "emqx-pkg"
 
+        # deploy pulsar?
+        enable_pulsar = self.node.try_get_context('emqx_pulsar_enable')
+        if enable_pulsar and isinstance(enable_pulsar, str):
+            self.enable_pulsar = strtobool(enable_pulsar)
+        else:
+            self.enable_pulsar = False
+
         if self.emqx_ins_type != self.emqx_core_ins_type:
             logging.warning("👍🏼  Will deploy %d %s EMQX, %d %s EMQX, and %d %s Loadgens\n get emqx src by %s "
                             % (self.numEmqx - self.numCoreNodes,
@@ -1000,6 +1009,9 @@ class CdkEmqxClusterStack(cdk.Stack):
             numReplicants = self.numEmqx - self.numCoreNodes
             logging.warning(
                 f"💽    with {numReplicants} replicant and {self.numCoreNodes} core node(s)")
+
+        if self.enable_pulsar:
+            logging.warning("💫  Will deploy Pulsar to EKS")
 
     @staticmethod
     def attach_ssm_policy(role):
@@ -1093,6 +1105,94 @@ class CdkEmqxClusterStack(cdk.Stack):
                                         'JitterMilliseconds' : '10',
                                         'Interface':'ens5'}
                              )
+
+    def setup_pulsar(self):
+        if not self.enable_pulsar:
+            return
+
+        # https://github.com/apache/pulsar-helm-chart
+        # https://pulsar.apache.org/docs/helm-deploy/
+        # https://docs.aws.amazon.com/cdk/api/v1/python/aws_cdk.aws_eks/Cluster.html
+        # https://docs.aws.amazon.com/cdk/api/v1/python/aws_cdk.aws_eks/HelmChart.html
+        eks_cluster = eks.Cluster(
+            self,
+            id=self.cluster_name + "-pulsar",
+            vpc=self.vpc,
+            vpc_subnets=[ec2.SubnetSelection(
+                subnet_type=ec2.SubnetType.PRIVATE
+            )],
+            endpoint_access=eks.EndpointAccess.PRIVATE,
+            version=eks.KubernetesVersion.V1_21,
+        )
+        nodegroup = eks_cluster.add_nodegroup_capacity(
+            id=self.cluster_name + "-pulsar-nodegroup",
+            capacity_type=eks.CapacityType.ON_DEMAND,
+            min_size=1,
+            desired_size=2,
+            max_size=3,
+            # disk_size=20,
+            # force_update=True,
+            instance_types=[
+                ec2.InstanceType(instance_type_identifier="t3.medium"),
+            ],
+            remote_access=eks.NodegroupRemoteAccess(
+                ssh_key_name=self.ssh_key,
+            ),
+        )
+        nodegroup.apply_removal_policy(core.RemovalPolicy.DESTROY)
+        helm_values = {
+            "monitoring": {
+                "prometheus": False,
+                "graphana": False,
+            },
+            "components": {
+                "toolset": False,
+                "functions": False,
+                "autorecovery": False,
+            },
+            "zookeeper": {
+                "replicaCount": 1,
+            },
+            "bookkeeper": {
+                "replicaCount": 1,
+            },
+            "proxy": {
+                "replicaCount": 1,
+            },
+            "broker": {
+                "replicaCount": 1,
+                "configData": {
+                    ## Enable `autoSkipNonRecoverableData` since bookkeeper is running
+                    ## without persistence
+                    "autoSkipNonRecoverableData": "true",
+                    # storage settings
+                    "managedLedgerDefaultEnsembleSize": "1",
+                    "managedLedgerDefaultWriteQuorum": "1",
+                    "managedLedgerDefaultAckQuorum": "1",
+                },
+            },
+        }
+        release_name = self.cluster_name + "-pulsar-release"
+        eks_cluster.add_helm_chart(
+            id=self.cluster_name + "-pulsar-helm",
+            chart="pulsar",
+            repository="https://pulsar.apache.org/charts",
+            release=release_name,
+            create_namespace=True,
+            namespace="pulsar",
+            values=helm_values
+        )
+        service_address = eks.KubernetesObjectValue(
+            self, id="pulsar-service-ip",
+            cluster=eks_cluster,
+            object_type="service",
+            object_name=release_name + "-proxy",
+            json_path=".status.loadBalancer.ingress[0].hostname",
+        )
+        core.CfnOutput(self, "Pulsar Proxy URL",
+                       value=f"pulsar://{service_address}:6650")
+
+
     def setup_efs(self):
         # New SG for EFS
         self.sg_efs_mt = ec2.SecurityGroup(self, "sg_efs_mt", vpc=self.vpc)
