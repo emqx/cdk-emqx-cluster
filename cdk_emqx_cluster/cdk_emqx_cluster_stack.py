@@ -21,6 +21,7 @@ from aws_cdk import (core as cdk, aws_ec2 as ec2, aws_ecs as ecs,
                      aws_s3_deployment as s3deploy,
                      aws_efs as efs,
                      aws_msk as msk,
+                     aws_eks as eks,
                      aws_ecs_patterns as ecs_patterns)
 from aws_cdk.core import Duration, CfnParameter, RemovalPolicy
 from base64 import b64encode
@@ -163,6 +164,7 @@ class CdkEmqxClusterStack(cdk.Stack):
 
         # Create Application Services
         self.setup_kafka()
+        self.setup_pulsar()
         self.setup_emqx(self.numEmqx)
         self.setup_etcd()
         self.setup_loadgen(self.numLg)
@@ -190,6 +192,7 @@ class CdkEmqxClusterStack(cdk.Stack):
                              f"-L 13000:{self.mon_lb}:3000 "
                              f"-L 19090:{self.mon_lb}:9090 "
                              f"-L 15432:{self.mon_lb}:5432 "
+                             f"-L 28083:{self.mon_lb}:8083 "
                              "2>/dev/null"
                        )
         core.CfnOutput(self, 'EFS ID:', value=self.shared_efs.file_system_id)
@@ -643,10 +646,10 @@ class CdkEmqxClusterStack(cdk.Stack):
         listener = nlb.add_listener("port1883", port=1883)
         listenerTLS = nlb.add_listener(
             "port8883", port=8883)  # TLS, emqx terminataion
-        if self.enable_nginx:
-            listenerTLSNginx = nlb.add_listener("port18883", port=18883)
         listenerQuic = nlb.add_listener(
             "port14567", port=14567, protocol=elbv2.Protocol.UDP)
+        listenerWS = nlb.add_listener(
+            "port8083", port=8083)
         listenerUI = nlb.add_listener("port80", port=80)
 
         listener.add_targets('ec2',
@@ -665,11 +668,17 @@ class CdkEmqxClusterStack(cdk.Stack):
                                  targets=[target.InstanceTarget(x)
                                           for x in self.emqx_vms])
 
+        listenerWS.add_targets('ec2',
+                               port=8083,
+                               targets=[target.InstanceTarget(x)
+                                        for x in self.emqx_vms])
+
         listenerTLS.add_targets('ec2',
                                 port=8883,
                                 targets=[target.InstanceTarget(x)
                                          for x in self.emqx_vms])
         if self.enable_nginx:
+            listenerTLSNginx = nlb.add_listener("port18883", port=18883)
             listenerTLSNginx.add_targets('ec2',
                                          port=18883,
                                          targets=[target.InstanceTarget(x)
@@ -731,8 +740,9 @@ class CdkEmqxClusterStack(cdk.Stack):
             core.Tags.of(ins).add('service', 'etcd')
 
     def setup_vpc(self):
+        max_azs = 2 if self.kafka_ebs_vol_size or self.enable_pulsar else 1
         vpc = ec2.Vpc(self, "VPC EMQX %s" % self.cluster_name,
-                      max_azs=2 if self.kafka_ebs_vol_size else 1,
+                      max_azs=max_azs,
                       cidr="10.10.0.0/16",
                       # configuration will create 3 groups in 2 AZs = 6 subnets.
                       subnet_configuration=[
@@ -814,9 +824,14 @@ class CdkEmqxClusterStack(cdk.Stack):
         bastion.connections.allow_from_any_ipv4(
             ec2.Port.tcp(22), "Internet access SSH")
 
-        bastion.instance.add_user_data(
+        bastion.instance.add_user_data(textwrap.dedent(
             """
             #!/bin/bash
+            curl -o kubectl https://s3.us-west-2.amazonaws.com/amazon-eks/1.21.2/2021-07-05/bin/linux/amd64/kubectl
+            install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+            curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 > get_helm.sh
+            chmod 700 get_helm.sh
+            ./get_helm.sh --version v3.8.2
             yum install -y tmux amazon-efs-utils
             echo "search int.%s" >> /etc/resolv.conf
             sudo -u ec2-user echo 'HOST *' > ~ec2-user/.ssh/config
@@ -824,7 +839,7 @@ class CdkEmqxClusterStack(cdk.Stack):
             mkdir -p /mnt/efs-data
             mount -t efs -o tls %s:/ /mnt/efs-data
             """ % (self.cluster_name, self.shared_efs.file_system_id)
-        )
+        ))
         if self.kafka_ebs_vol_size:
             bastion.instance.add_user_data(
             f"""
@@ -852,6 +867,38 @@ class CdkEmqxClusterStack(cdk.Stack):
             curl -i --basic -u admin:public -X POST "http://emqx-0.int.{self.cluster_name}:8081/api/v4/data/import" \
             -d @emqx_config.json
             """))
+
+        if self.enable_pulsar:
+            pulsar_resource = self.pulsar_eks_cluster.cluster_arn
+            pulsar_control_plane_role = self.pulsar_eks_cluster.role.role_arn
+            pulsar_admin_role = self.pulsar_eks_cluster.admin_role.role_arn
+            pulsar_kubectl_role = self.pulsar_eks_cluster.kubectl_role.role_arn
+            # https://github.com/aws/aws-cdk/issues/13167#issuecomment-782884496
+            pulsar_master_role = self.pulsar_eks_cluster.node.try_find_child("MastersRole").role_arn
+            pulsar_policy = iam.Policy(
+                self,
+                id=self.cluster_name + "-pulsar-eks-cluster-bastion",
+                statements=[
+                    iam.PolicyStatement(
+                        actions=[
+                            "eks:DescribeCluster",
+                            "sts:AssumeRole",
+                        ],
+                        effect=iam.Effect.ALLOW,
+                        resources=[
+                            pulsar_resource,
+                            pulsar_admin_role,
+                            pulsar_kubectl_role,
+                            pulsar_control_plane_role,
+                            pulsar_master_role,
+                        ]
+                    )
+                ],
+            )
+            bastion.role.attach_inline_policy(pulsar_policy)
+            self.pulsar_eks_cluster.kubectl_security_group.add_ingress_rule(
+                peer=sg_bastion, connection=ec2.Port.all_traffic()
+            )
 
         self.sg_efs_mt.add_ingress_rule(
             peer=sg_bastion, connection=ec2.Port.all_traffic())
@@ -959,11 +1006,18 @@ class CdkEmqxClusterStack(cdk.Stack):
 
         # EMQX-Builder image that'll build the release
         self.emqx_builder_image = self.node.try_get_context(
-            'emqx_builder_image') or "ghcr.io/emqx/emqx-builder/5.0-8:1.13.3-24.2.1-1-ubuntu20.04"
+            'emqx_builder_image') or "ghcr.io/emqx/emqx-builder/5.0-17:1.13.4-24.2.1-1-ubuntu20.04"
 
         # EMQ X profile to be built with "make $PROFILE"
         self.emqx_build_profile = self.node.try_get_context(
             'emqx_build_profile') or "emqx-pkg"
+
+        # deploy pulsar?
+        enable_pulsar = self.node.try_get_context('emqx_pulsar_enable')
+        if enable_pulsar and isinstance(enable_pulsar, str):
+            self.enable_pulsar = strtobool(enable_pulsar)
+        else:
+            self.enable_pulsar = False
 
         if self.emqx_ins_type != self.emqx_core_ins_type:
             logging.warning("👍🏼  Will deploy %d %s EMQX, %d %s EMQX, and %d %s Loadgens\n get emqx src by %s "
@@ -1000,6 +1054,9 @@ class CdkEmqxClusterStack(cdk.Stack):
             numReplicants = self.numEmqx - self.numCoreNodes
             logging.warning(
                 f"💽    with {numReplicants} replicant and {self.numCoreNodes} core node(s)")
+
+        if self.enable_pulsar:
+            logging.warning("💫  Will deploy Pulsar to EKS")
 
     @staticmethod
     def attach_ssm_policy(role):
@@ -1093,6 +1150,144 @@ class CdkEmqxClusterStack(cdk.Stack):
                                         'JitterMilliseconds' : '10',
                                         'Interface':'ens5'}
                              )
+
+    def setup_pulsar(self):
+        if not self.enable_pulsar:
+            return
+
+        # https://github.com/apache/pulsar-helm-chart
+        # https://pulsar.apache.org/docs/helm-deploy/
+        # https://docs.aws.amazon.com/cdk/api/v1/python/aws_cdk.aws_eks/Cluster.html
+        # https://docs.aws.amazon.com/cdk/api/v1/python/aws_cdk.aws_eks/HelmChart.html
+        eks_cluster = eks.Cluster(
+            self,
+            id=self.cluster_name + "-pulsar",
+            vpc=self.vpc,
+            vpc_subnets=[ec2.SubnetSelection(
+                subnet_type=ec2.SubnetType.PRIVATE
+            )],
+            endpoint_access=eks.EndpointAccess.PRIVATE,
+            version=eks.KubernetesVersion.V1_21,
+        )
+        nodegroup = eks_cluster.add_nodegroup_capacity(
+            id=self.cluster_name + "-pulsar-nodegroup",
+            capacity_type=eks.CapacityType.ON_DEMAND,
+            min_size=1,
+            desired_size=2,
+            max_size=3,
+            # disk_size=20,
+            # force_update=True,
+            instance_types=[
+                ec2.InstanceType(instance_type_identifier="t3.medium"),
+            ],
+            remote_access=eks.NodegroupRemoteAccess(
+                ssh_key_name=self.ssh_key,
+            ),
+        )
+        nodegroup.apply_removal_policy(core.RemovalPolicy.DESTROY)
+        # install cert-manager to enable tls self-signed certs
+        # https://github.com/aws/aws-cdk/issues/8340#issuecomment-639372288
+        # https://github.com/apache/pulsar/issues/14547
+        CERT_MANAGER_VERSION = "v1.5.4"
+        cert_manager_helm = eks_cluster.add_helm_chart(
+            id=f"{self.cluster_name}-cert-manager-helm",
+            chart="cert-manager",
+            repository="https://charts.jetstack.io",
+            release=f"{self.cluster_name}-cert-manager",
+            create_namespace=True,
+            namespace="cert-manager",
+            version=CERT_MANAGER_VERSION,
+            values={
+                "installCRDs": True,
+            },
+            wait=True,
+        )
+
+        # pulsar helm values
+        PULSAR_CHART_VERSION = "2.9.3"
+        helm_values = {
+            "monitoring": {
+                "prometheus": False,
+                "grafana": False,
+            },
+            "components": {
+                "toolset": False,
+                "functions": False,
+                "autorecovery": False,
+            },
+            "zookeeper": {
+                "replicaCount": 1,
+            },
+            "bookkeeper": {
+                "replicaCount": 1,
+            },
+            "proxy": {
+                "replicaCount": 1,
+            },
+            "broker": {
+                "replicaCount": 1,
+                "configData": {
+                    ## Enable `autoSkipNonRecoverableData` since bookkeeper is running
+                    ## without persistence
+                    "autoSkipNonRecoverableData": "true",
+                    # storage settings
+                    "managedLedgerDefaultEnsembleSize": "1",
+                    "managedLedgerDefaultWriteQuorum": "1",
+                    "managedLedgerDefaultAckQuorum": "1",
+                },
+            },
+            # enable tls
+            "tls": {
+                "enabled": True,
+                "proxy": {
+                    "enabled": True,
+                },
+                "broker": {
+                    "enabled": True,
+                },
+                "zookeeper": {
+                    "enabled": True,
+                },
+            },
+            # issue self signing certs
+            "certs": {
+                "internal_issuer": {
+                    "enabled": True,
+                    "apiVersion": "cert-manager.io/v1alpha2",
+                    "type": "selfsigning",
+                },
+            },
+        }
+        release_name = f"{self.cluster_name}-pulsar-release"
+        pulsar_helm = eks_cluster.add_helm_chart(
+            id=f"{self.cluster_name}-pulsar-helm",
+            chart="pulsar",
+            repository="https://pulsar.apache.org/charts",
+            release=release_name,
+            create_namespace=True,
+            namespace="pulsar",
+            values=helm_values,
+            version=PULSAR_CHART_VERSION,
+        )
+        # cert-manager CRDs must be installed before pulsar with TLS
+        # is installed...
+        pulsar_helm.node.add_dependency(cert_manager_helm)
+        service_address = eks.KubernetesObjectValue(
+            self, id="pulsar-service-ip",
+            cluster=eks_cluster,
+            object_type="service",
+            object_name=release_name + "-proxy",
+            object_namespace="pulsar",
+            json_path=".status.loadBalancer.ingress[0].hostname",
+        )
+        core.CfnOutput(self, "Pulsar Proxy URL",
+                       value=f"pulsar+ssl://{service_address.value}:6651")
+        core.CfnOutput(self, "Pulsar Proxy URL command (run in bastion)",
+                       value=f'kubectl -n pulsar get svc {release_name + "-proxy"} '
+                              '-o=jsonpath="{.status.loadBalancer.ingress[0].hostname}"')
+        self.pulsar_eks_cluster = eks_cluster
+
+
     def setup_efs(self):
         # New SG for EFS
         self.sg_efs_mt = ec2.SecurityGroup(self, "sg_efs_mt", vpc=self.vpc)
