@@ -147,6 +147,7 @@ class CdkEmqxClusterStack(cdk.Stack):
         self.s3_bucket_policy = None
 
         self.hosts = []
+        self.loadgens = []
 
         # Prepare infrastructure
         self.set_cluster_name()
@@ -216,7 +217,13 @@ class CdkEmqxClusterStack(cdk.Stack):
 
         for n in range(0, N):
             name = "loadgen-%d" % n
-            bootScript = ec2.UserData.custom(loadgen_user_data)
+            loadgen_user_data_template = string.Template(loadgen_user_data)
+            bootScript = ec2.UserData.custom(
+                loadgen_user_data_template.safe_substitute(
+                    EMQTT_BENCH_SRC_CMD = self.emqtt_bench_src_cmd,
+                    EMQTTB_SRC_CMD = self.emqttb_src_cmd,
+                )
+            )
 
             persistentConfig = ec2.UserData.for_linux()
             persistentConfig.add_commands(
@@ -305,6 +312,7 @@ class CdkEmqxClusterStack(cdk.Stack):
                         )
 
             self.hosts.append(dnsname)
+            self.loadgens.append(dnsname)
 
             if self.user_defined_tags:
                 core.Tags.of(ins).add(*self.user_defined_tags)
@@ -317,9 +325,11 @@ class CdkEmqxClusterStack(cdk.Stack):
         sg = self.sg
         nlb = self.nlb
         with open("./user_data/prometheus.yml") as f:
-            prometheus_config = f.read()
-            prometheus_config = prometheus_config % ','.join(
-                ['"%s:%d"' % (t, 9100) for t in targets])
+            prometheus_config_tmpl = string.Template(f.read())
+            prometheus_config = prometheus_config_tmpl.safe_substitute(
+                EMQX_NODES = ','.join([f'"{t}:9100"' for t in targets]),
+                EMQTTB_NODES = ','.join([f'"{t}:8017"' for t in self.loadgens]),
+            )
 
         sg.add_ingress_rule(ec2.Peer.any_ipv4(),
                             ec2.Port.tcp(9090), 'prometheus')
@@ -1004,6 +1014,14 @@ class CdkEmqxClusterStack(cdk.Stack):
         self.emqx_src_cmd = self.node.try_get_context(
             'emqx_src') or "git clone https://github.com/emqx/emqx"
 
+        # EMQTTB source
+        self.emqttb_src_cmd = self.node.try_get_context(
+            'emqttb_src_cmd') or 'git clone -b "master" https://github.com/emqx/emqttb.git'
+
+        # EMQTT-Bench source
+        self.emqtt_bench_src_cmd = self.node.try_get_context(
+            'emqtt_bench_src_cmd') or 'git clone -b "master" https://github.com/emqx/emqtt-bench.git'
+
         # EMQX-Builder image that'll build the release
         self.emqx_builder_image = self.node.try_get_context(
             'emqx_builder_image') or "ghcr.io/emqx/emqx-builder/5.0-17:1.13.4-24.2.1-1-ubuntu20.04"
@@ -1214,6 +1232,7 @@ class CdkEmqxClusterStack(cdk.Stack):
                 "toolset": False,
                 "functions": False,
                 "autorecovery": False,
+                "pulsar_manager": True,
             },
             "zookeeper": {
                 "replicaCount": 1,

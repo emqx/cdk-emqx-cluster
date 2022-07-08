@@ -35,4 +35,8 @@ scrape_configs:
 
   - job_name: "emqx node exporter"
     static_configs:
-      - targets: [%s]
+      - targets: [${EMQX_NODES}]
+
+  - job_name: "emqttb metrics"
+    static_configs:
+      - targets: [${EMQTTB_NODES}]
