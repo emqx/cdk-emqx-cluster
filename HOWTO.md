@@ -53,8 +53,8 @@ emqx_ebs
 # default: null, (no kafka)
 kafka_ebs
 
-# Specify how to fetch emqx package by 
-# 
+# Specify how to fetch emqx package by
+#
 # - Download deb file from web
 #   emqx_src="wget https://www.emqx.io/downloads/broker/v4.3.0/emqx-ubuntu20.04-4.3.0-amd64.deb"
 # - Fetch deb file from S3. Note, emqx node only has access to cluster bucket: s3://emqx-cdk-cluster/${cluster_name}
@@ -273,3 +273,11 @@ Following setup could reach 5.5M connections per instance.
 CDK_EMQX_CLUSTERNAME=william cdk deploy CdkEmqxClusterStack -c retain_efs='fs-0c86dd7fcd8ca836c'  -c emqx_n=1 -c lg_n=2 -c emqx_ins_type="c6g.metal" -c loadgen_ins_type="c6g.metal"
 
 ```
+
+# Bootstrapping a new region
+
+When deploying to a new region, run `cdk boostrap`.
+
+Note: this requires the executing user to have `ecr:CreateRepository` permissions in the region.
+
+Also, for convenience, make sure a key pair named `key_ireland` exists in your new region.

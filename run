@@ -14,7 +14,7 @@ fi
 docker run -e AWS_PROFILE="${AWS_PROFILE:-default}" \
        -e CDK_EMQX_CLUSTERNAME=${CDK_EMQX_CLUSTERNAME} \
        --rm -it \
-       -v ~/.aws:/root/.aws \
+       -v ~/.aws:/root/.aws:ro \
        -v $(pwd):/opt/ \
        -w /opt \
        mycdk "$@"
