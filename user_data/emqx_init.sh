@@ -81,29 +81,40 @@ maybe_install_from_src() {
 }
 
 maybe_config_overrides_v5() {
-  if [[ "${EMQX_CDK_DB_BACKEND}" = "rlog" ]]
-  then
-    case "${EMQX_CDK_DB_BACKEND_ROLE}" in
-      core)
-        cat >> /etc/emqx/emqx.conf <<EOF
-db {
-  backend = "rlog"
-  role = "core"
+  case "${EMQX_CDK_DB_BACKEND}" in
+    rlog)
+      case "${EMQX_CDK_DB_BACKEND_ROLE}" in
+        core)
+          cat >> /etc/emqx/emqx.conf <<EOF
+node {
+  db_backend = "rlog"
+  db_role = "core"
 }
 EOF
-        ;;
+          ;;
 
       replicant)
         cat >> /etc/emqx/emqx.conf <<EOF
-db {
-  backend = "rlog"
-  role = "replicant"
+node {
+  db_backend = "rlog"
+  db_role = "replicant"
+}
+cluster {
   core_nodes = "${EMQX_CDK_CORE_NODES}"
 }
 EOF
         ;;
-    esac
-  fi
+      esac
+      ;;
+    mnesia)
+      cat >> /etc/emqx/emqx.conf <<EOF
+node {
+  db_backend = "mnesia"
+  db_role = "core"
+}
+EOF
+      ;;
+  esac
 }
 
 config_overrides_v5() {
