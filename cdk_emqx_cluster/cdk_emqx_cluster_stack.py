@@ -934,6 +934,11 @@ class CdkEmqxClusterStack(cdk.Stack):
                     )
         self.nlb = nlb
 
+    # Uncomment to force given AZ(s) to be used.
+    # @property
+    # def availability_zones(self):
+    #     return ["sa-east-1b"]
+
     def read_param(self):
         # CHAOS_READY, if true, cluster is chaos ready and able to accept chaos tests.
         self.is_chaos_ready = self.node.try_get_context('chaos') or 'False'
