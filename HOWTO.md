@@ -316,3 +316,12 @@ When deploying to a new region, run `cdk boostrap`.
 Note: this requires the executing user to have `ecr:CreateRepository` permissions in the region.
 
 Also, for convenience, make sure a key pair named `key_ireland` exists in your new region.
+
+```sh
+aws ec2 create-key-pair \
+      --key-name key_ireland \
+      --key-type rsa \
+      --key-format pem \
+      --query "KeyMaterial" \
+      --output text > ~/.ssh/id_rsa.emqx.sa-east
+```
