@@ -36,7 +36,7 @@ setuptools.setup(
         "aws-cdk.aws-msk==1.134.0",
         "aws-cdk.aws-stepfunctions==1.134.0",
         "aws-cdk.aws-stepfunctions-tasks==1.134.0",
-        "pyyaml"
+        "pyyaml",
     ],
 
     python_requires=">=3.6",

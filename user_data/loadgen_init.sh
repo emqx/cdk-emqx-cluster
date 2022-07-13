@@ -12,9 +12,17 @@ EOF
 sysctl -p
 
 cd /root/
-git clone -b "master" https://github.com/emqx/emqtt-bench.git
-cd emqtt-bench
+
+$EMQTT_BENCH_SRC_CMD
+pushd emqtt-bench
 HOME=/root DIAGNOSTIC=1 make
+popd
+
+$EMQTTB_SRC_CMD
+pushd emqttb
+cp /root/emqtt-bench/rebar3 ./
+env BUILD_WITHOUT_QUIC=1 ./rebar3 escriptize
+popd
 
 cluster=$(hostname -f | cut -d . -f 3)
 aws s3 cp --recursive "s3://emqx-cdk-cluster/${cluster}/bin" /usr/local/bin/

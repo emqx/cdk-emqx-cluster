@@ -73,7 +73,7 @@ emqx_src
 retain_efs
 
 # Docker image that'll be used to build EMQ X
-# default: ghcr.io/emqx/emqx-builder/5.0-8:1.13.3-24.2.1-1-ubuntu20.04
+# default: ghcr.io/emqx/emqx-builder/5.0-17:1.13.4-24.2.1-1-ubuntu20.04
 emqx_builder_image
 
 # Monitoring Postgres password
@@ -95,6 +95,12 @@ emqx_enable_nginx
 # To build with Elixir, use "emqx-elixirpkg".
 # default: emqx-pkg
 emqx_build_profile
+
+# Enable Pulsar
+# Whether to deploy Pulsar.  Requires to be deployed over at least 2 AZs.
+# Will have TLS enabled.
+# default: False
+emqx_pulsar_enable
 
 ```
 
@@ -265,6 +271,35 @@ The `emqx_ebs` is needed since these instances do not have storage by default.
 CDK_EMQX_CLUSTERNAME=william-k2 cdk deploy --all  -c emqx_n=1 -c lg_n=2 -c emqx_ins_type="m5.4xlarge" -c loadgen_ins_type="m5n.4xlarge" -c emqx_src="wget https://www.emqx.com/en/downloads/enterprise/4.3.5/emqx-ee-ubuntu20.04-4.3.5-amd64.deb" -c kafka_ebs=20 -c retain_efs='fs-030640d9e840fce7b' -c emqx_monitoring_postgres_password=cdniylye
 ```
 
+## Pulsar data bridge test with emqx enterprise
+
+CDK will print both the URL to be used for connecting to Pulsar:
+
+```
+# example
+CdkEmqxClusterStack.PulsarProxyURL = pulsar+ssl://ad72a1f2bc1514e43816a5a87ef5ad56-680660445.sa-east-1.elb.amazonaws.com:6651
+# command to run in bastion and get the url
+CdkEmqxClusterStack.PulsarProxyURLcommandruninbastion = kubectl -n pulsar get svc thales-pulsar-release-proxy -o=jsonpath="{.status.loadBalancer.ingress[0].hostname}"
+```
+
+```sh
+  time cdk deploy CdkEmqxClusterStack \
+       -c emqx_n=1 \
+       -c emqx_num_core_nodes=1 \
+       -c emqx_db_backend="rlog" \
+       -c lg_n=0 \
+       -c emqx_enable_nginx=False \
+       -c emqx_pulsar_enable=True \
+       `#-c retain_efs=True` \
+       -c emqx_monitoring_postgres_password="mypass" \
+       -c emqx_src="wget https://www.emqx.com/en/downloads/enterprise/4.4.5/emqx-ee-4.4.5-otp24.1.5-3-ubuntu20.04-amd64.deb" \
+       `#-c emqx_builder_image="ghcr.io/emqx/emqx-builder/5.0-17:1.13.4-24.2.1-1-ubuntu20.04"` \
+       `#-c emqx_build_profile="emqx-elixir-pkg"` \
+       -c emqx_ins_type="t3a.small" \
+       -c emqx_core_ins_type="t3a.small" \
+       -c loadgen_ins_type="t3a.small"
+```
+
 ## MAX connections test with AWS bare metal
 
 Following setup could reach 5.5M connections per instance.
@@ -281,3 +316,12 @@ When deploying to a new region, run `cdk boostrap`.
 Note: this requires the executing user to have `ecr:CreateRepository` permissions in the region.
 
 Also, for convenience, make sure a key pair named `key_ireland` exists in your new region.
+
+```sh
+aws ec2 create-key-pair \
+      --key-name key_ireland \
+      --key-type rsa \
+      --key-format pem \
+      --query "KeyMaterial" \
+      --output text > ~/.ssh/id_rsa.emqx.sa-east
+```
