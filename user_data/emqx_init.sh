@@ -209,6 +209,11 @@ sysmon.top {
   sample_interval = 5s
 }
 
+node {
+  max_ports = 134217727
+  process_limit = 134217727
+}
+
 EOF
 }
 
