@@ -487,7 +487,7 @@ class CdkEmqxClusterStack(cdk.Stack):
         c_grafana = task.add_container('grafana',
                                        essential=True,
                                        image=ecs.ContainerImage.from_registry(
-                                           'ghcr.io/iequ1/sysmon-grafana:1.3.1'),
+                                           'ghcr.io/iequ1/sysmon-grafana:1.3.2'),
                                        environment={
                                            'POSTGRES_PASS': self.postgresPass,
                                            'GF_AUTH_ANONYMOUS_ENABLED': "true"
