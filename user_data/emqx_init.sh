@@ -142,7 +142,7 @@ listeners.ssl.default {
 listeners.quic.default {
   enabled = true
   bind = "0.0.0.0:14567"
-  max_connections = 1024000
+  max_connections = infinity
   keyfile = "/etc/emqx/certs/key.pem"
   certfile = "/etc/emqx/certs/cert.pem"
 }
