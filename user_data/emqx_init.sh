@@ -145,6 +145,23 @@ listeners.tcp.default {
   max_connections: infinity
 }
 
+listeners.ssl.default {
+  acceptors: 128
+  max_connections: infinity
+}
+
+listeners.quic.default {
+  enabled = true
+  bind = "0.0.0.0:14567"
+  max_connections = infinity
+  keyfile = "/etc/emqx/certs/key.pem"
+  certfile = "/etc/emqx/certs/cert.pem"
+}
+
+conn_congestion {
+    enable_alarm = false
+}
+
 rate_limit {
  max_conn_rate = infinity
  conn_messages_in = infinity
@@ -228,6 +245,14 @@ cluster.discovery = etcd
 cluster.etcd.server = http://etcd0.${domain}:2379
 listener.tcp.external.max_conn_rate = 5000
 listener.tcp.external.acceptors = 128
+listener.tcp.external.max_connections = 100000000
+listener.ssl.external.max_conn_rate = 5000
+listener.ssl.external.acceptors = 128
+listener.ssl.external.max_connections = 100000000
+rpc.tcp_client_num=8
+rpc.socket_sndbuf=4MB
+rpc.socket_recbuf=4MB
+rpc.socket_buffer=8MB
 ## ========= cloud user_data end  ===========##
 EOF
 
