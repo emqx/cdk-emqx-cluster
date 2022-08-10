@@ -21,7 +21,7 @@ popd
 $EMQTTB_SRC_CMD
 pushd emqttb
 cp /root/emqtt-bench/rebar3 ./
-env BUILD_WITHOUT_QUIC=1 ./rebar3 escriptize
+env BUILD_WITHOUT_QUIC=1 ./rebar3 compile
 popd
 
 cluster=$(hostname -f | cut -d . -f 3)

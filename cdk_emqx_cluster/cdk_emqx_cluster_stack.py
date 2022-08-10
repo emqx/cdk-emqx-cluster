@@ -338,7 +338,7 @@ class CdkEmqxClusterStack(cdk.Stack):
         sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(
             9091), 'prometheus pushgateway')
         sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(3000), 'grafana')
-        sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(5432), 'postgres')
+        # sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(5432), 'postgres')
 
         self.ap_prom_data = efs.AccessPoint(self, "shared-data-prom",
                                             path='/tsdb_data',
@@ -426,9 +426,9 @@ class CdkEmqxClusterStack(cdk.Stack):
                                               "--web.enable-admin-api"
                                           ],
                                           # uncomment for troubleshooting
-                                          # logging=ecs.LogDriver.aws_logs(stream_prefix="mon_prometheus",
-                                          #                               log_retention=aws_logs.RetentionDays.ONE_DAY
-                                          #                               ),
+                                          logging=ecs.LogDriver.aws_logs(stream_prefix="mon_prometheus",
+                                                                        log_retention=aws_logs.RetentionDays.ONE_DAY
+                                                                        ),
 
                                           )
         c_prometheus.add_mount_points(ecs.MountPoint(
@@ -445,44 +445,44 @@ class CdkEmqxClusterStack(cdk.Stack):
                                            port_mappings=[
                                                ecs.PortMapping(container_port=9091)]
                                            )
-        c_postgres = task.add_container('postgres',
-                                        essential=True,
-                                        image=ecs.ContainerImage.from_registry(
-                                            'ghcr.io/iequ1/sysmon-postgres:1.3.1'),
-                                        port_mappings=[
-                                            ecs.PortMapping(container_port=5432)],
-                                        # It looks like postgres doesn't want to die sometimes
-                                        stop_timeout=Duration.seconds(100),
-                                        start_timeout=Duration.seconds(300),
-                                        environment={
-                                            'POSTGRES_PASSWORD': self.postgresPass,
-                                            'SYSMON_PASS': self.postgresPass,
-                                            'GRAFANA_PASS': self.postgresPass,
-                                            # must not use "/var/lib/postgresql/data", else it'll
-                                            # fail
-                                            'PGDATA': '/var/lib/postgresql/pgdata'
-                                        },
-                                        # uncomment to reset the WAL; it may resolve a
-                                        # stuck container after a
-                                        # redeploy.
-                                        # user="postgres",
-                                        # command=[
-                                        #     "pg_resetwal",
-                                        #     "/var/lib/postgresql/pgdata",
-                                        # ],
-                                        # uncomment for troubleshooting
-                                        # logging=ecs.LogDriver.aws_logs(stream_prefix="mon_postgres",
-                                        #                                log_retention=aws_logs.RetentionDays.ONE_DAY,
-                                        #                                ),
-                                        )
-        c_postgres.add_mount_points(
-            ecs.MountPoint(
-                read_only=False,
-                # must be the same as the PGDATA variable above
-                container_path='/var/lib/postgresql/pgdata',
-                source_volume=self.pgsql_data_vol.name,
-            ),
-        )
+        # c_postgres = task.add_container('postgres',
+        #                                 essential=False,
+        #                                 image=ecs.ContainerImage.from_registry(
+        #                                     'ghcr.io/iequ1/sysmon-postgres:1.3.1'),
+        #                                 port_mappings=[
+        #                                     ecs.PortMapping(container_port=5432)],
+        #                                 # It looks like postgres doesn't want to die sometimes
+        #                                 stop_timeout=Duration.seconds(100),
+        #                                 start_timeout=Duration.seconds(300),
+        #                                 environment={
+        #                                     'POSTGRES_PASSWORD': self.postgresPass,
+        #                                     'SYSMON_PASS': self.postgresPass,
+        #                                     'GRAFANA_PASS': self.postgresPass,
+        #                                     # must not use "/var/lib/postgresql/data", else it'll
+        #                                     # fail
+        #                                     'PGDATA': '/var/lib/postgresql/pgdata'
+        #                                 },
+        #                                 # uncomment to reset the WAL; it may resolve a
+        #                                 # stuck container after a
+        #                                 # redeploy.
+        #                                 # user="postgres",
+        #                                 # command=[
+        #                                 #     "pg_resetwal",
+        #                                 #     "/var/lib/postgresql/pgdata",
+        #                                 # ],
+        #                                 # uncomment for troubleshooting
+        #                                 # logging=ecs.LogDriver.aws_logs(stream_prefix="mon_postgres",
+        #                                 #                                log_retention=aws_logs.RetentionDays.ONE_DAY,
+        #                                 #                                ),
+        #                                 )
+        # c_postgres.add_mount_points(
+        #     ecs.MountPoint(
+        #         read_only=False,
+        #         # must be the same as the PGDATA variable above
+        #         container_path='/var/lib/postgresql/pgdata',
+        #         source_volume=self.pgsql_data_vol.name,
+        #     ),
+        # )
 
         c_grafana = task.add_container('grafana',
                                        essential=True,
@@ -511,7 +511,7 @@ class CdkEmqxClusterStack(cdk.Stack):
         listenerGrafana = nlb.add_listener('grafana', port=3000)
         listenerPrometheus = nlb.add_listener('prometheus', port=9090)
         listenerPushGateway = nlb.add_listener('pushgateway', port=9091)
-        listenerPostgres = nlb.add_listener('postgres', port=5432)
+        # listenerPostgres = nlb.add_listener('postgres', port=5432)
 
         listenerGrafana.add_targets(id='grafana', port=3000, targets=[service.load_balancer_target(
             container_name="grafana",
@@ -527,10 +527,10 @@ class CdkEmqxClusterStack(cdk.Stack):
             container_port=9091
         )]),
 
-        listenerPostgres.add_targets(id='postgres', port=5432, targets=[service.load_balancer_target(
-            container_name="postgres",
-            container_port=5432
-        )]),
+        # listenerPostgres.add_targets(id='postgres', port=5432, targets=[service.load_balancer_target(
+        #     container_name="postgres",
+        #     container_port=5432
+        # )]),
 
         self.mon_lb = self.loadbalancer_dnsname
         core.CfnOutput(self, "Monitoring Grafana",
