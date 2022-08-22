@@ -184,39 +184,11 @@ gateway.exproto {
   }
 }
 
-rate_limit {
-  ## Maximum connections per second.
-  ##
-  ## @doc zones.<name>.max_conn_rate
-  ## ValueType: Number | infinity
-  ## Default: 1000
-  ## Examples:
-  ##   max_conn_rate: 1000
-  max_conn_rate = infinity
-
-  ## Message limit for the a external MQTT connection.
-  ##
-  ## @doc rate_limit.conn_messages_in
-  ## ValueType: String | infinity
-  ## Default: infinity
-  ## Examples: 100 messages per 10 seconds.
-  ##   conn_messages_in: "100,10s"
-  conn_messages_in = infinity
-
-  ## Limit the rate of receiving packets for a MQTT connection.
-  ## The rate is counted by bytes of packets per second.
-  ##
-  ## The connection won't accept more messages if the messages come
-  ## faster than the limit.
-  ##
-  ## @doc rate_limit.conn_bytes_in
-  ## ValueType: String | infinity
-  ## Default: infinity
-  ## Examples: 100KB incoming per 10 seconds.
-  ##   conn_bytes_in: "100KB,10s"
-  ##
-  conn_bytes_in = infinity
-}
+limiter.connection.rate = infinity
+limiter.message_in.rate = infinity
+limiter.message_routing.rate = infinity
+limiter.internal.rate = infinity
+limiter.bytes_in.rate = infinity
 
 sysmon.top {
   db_hostname = "lb.${domain}"
