@@ -34,7 +34,7 @@ import random
 import string
 import os
 
-from cdk_chaos_test import SsmDocExperiment,IamRoleFis,ControlCmd
+from cdk_emqx_cluster.cdk_chaos_test import SsmDocExperiment,IamRoleFis,ControlCmd
 
 ubuntu_arm_ami = ec2.MachineImage.from_ssm_parameter('/aws/service/canonical/ubuntu/server/focal/stable/current/arm64/hvm/ebs-gp2/ami-id')
 ubuntu_x86_64_ami = ec2.MachineImage.from_ssm_parameter('/aws/service/canonical/ubuntu/server/focal/stable/current/amd64/hvm/ebs-gp2/ami-id')
