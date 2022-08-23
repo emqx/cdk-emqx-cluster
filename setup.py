@@ -37,6 +37,9 @@ setuptools.setup(
         "aws-cdk.aws-stepfunctions==1.134.0",
         "aws-cdk.aws-stepfunctions-tasks==1.134.0",
         "pyyaml",
+        # jsii 1.65.0 is broken with out current cdk version
+        "jsii==1.61.0",
+        "attrs==21.4.0",
     ],
 
     python_requires=">=3.6",
