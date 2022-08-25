@@ -187,7 +187,6 @@ gateway.exproto {
 limiter.connection.rate = infinity
 limiter.message_in.rate = infinity
 limiter.message_routing.rate = infinity
-limiter.internal.rate = infinity
 limiter.bytes_in.rate = infinity
 
 sysmon.top {
