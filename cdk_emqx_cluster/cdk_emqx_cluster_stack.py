@@ -338,7 +338,8 @@ class CdkEmqxClusterStack(cdk.Stack):
         sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(
             9091), 'prometheus pushgateway')
         sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(3000), 'grafana')
-        sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(5432), 'postgres')
+        if self.enable_postgres:
+            sg.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(5432), 'postgres')
 
         self.ap_prom_data = efs.AccessPoint(self, "shared-data-prom",
                                             path='/tsdb_data',
@@ -351,17 +352,18 @@ class CdkEmqxClusterStack(cdk.Stack):
                                                 uid="65534",  # nobody
                                                 gid="65534"),
                                             file_system=self.shared_efs)
-        self.ap_pgsql_data = efs.AccessPoint(self, "shared-data-pgsql",
-                                             path='/pgsql_data',
-                                             create_acl=efs.Acl(
-                                                 owner_uid="0",
-                                                 owner_gid="0",
-                                                 permissions="777"
-                                             ),
-                                             posix_user=efs.PosixUser(
-                                                 uid="0",  # nobody
-                                                 gid="0"),
-                                             file_system=self.shared_efs)
+        if self.enable_postgres:
+            self.ap_pgsql_data = efs.AccessPoint(self, "shared-data-pgsql",
+                                                 path='/pgsql_data',
+                                                 create_acl=efs.Acl(
+                                                     owner_uid="0",
+                                                     owner_gid="0",
+                                                     permissions="777"
+                                                 ),
+                                                 posix_user=efs.PosixUser(
+                                                     uid="0",  # nobody
+                                                     gid="0"),
+                                                 file_system=self.shared_efs)
 
         self.prom_data_vol = ecs.Volume(
             name="prom_data",
@@ -372,25 +374,29 @@ class CdkEmqxClusterStack(cdk.Stack):
                     access_point_id=self.ap_prom_data.access_point_id),
             )
         )
-        self.pgsql_data_vol = ecs.Volume(
-            name="pgsql_data",
-            efs_volume_configuration=ecs.EfsVolumeConfiguration(
-                file_system_id=self.shared_efs.file_system_id,
-                transit_encryption='ENABLED',
-                authorization_config=ecs.AuthorizationConfig(
-                    access_point_id=self.ap_pgsql_data.access_point_id),
+        if self.enable_postgres:
+            self.pgsql_data_vol = ecs.Volume(
+                name="pgsql_data",
+                efs_volume_configuration=ecs.EfsVolumeConfiguration(
+                    file_system_id=self.shared_efs.file_system_id,
+                    transit_encryption='ENABLED',
+                    authorization_config=ecs.AuthorizationConfig(
+                        access_point_id=self.ap_pgsql_data.access_point_id),
+                )
             )
-        )
 
         cluster = ecs.Cluster(self, "Monitoring", vpc=vpc)
+
+        volumes = [
+            self.prom_data_vol,
+        ]
+        if self.enable_postgres:
+            volumes.append(self.pgsql_data_vol)
         task = ecs.FargateTaskDefinition(self,
                                          id='MonitorTask',
                                          cpu=512,
                                          memory_limit_mib=4096,
-                                         volumes=[
-                                             self.prom_data_vol,
-                                             self.pgsql_data_vol,
-                                         ]
+                                         volumes=volumes
                                         )
         task.add_volume(name='prom_config')
         c_config = task.add_container('config-prometheus',
@@ -445,44 +451,45 @@ class CdkEmqxClusterStack(cdk.Stack):
                                            port_mappings=[
                                                ecs.PortMapping(container_port=9091)]
                                            )
-        c_postgres = task.add_container('postgres',
-                                        essential=True,
-                                        image=ecs.ContainerImage.from_registry(
-                                            'ghcr.io/iequ1/sysmon-postgres:1.3.1'),
-                                        port_mappings=[
-                                            ecs.PortMapping(container_port=5432)],
-                                        # It looks like postgres doesn't want to die sometimes
-                                        stop_timeout=Duration.seconds(100),
-                                        start_timeout=Duration.seconds(300),
-                                        environment={
-                                            'POSTGRES_PASSWORD': self.postgresPass,
-                                            'SYSMON_PASS': self.postgresPass,
-                                            'GRAFANA_PASS': self.postgresPass,
-                                            # must not use "/var/lib/postgresql/data", else it'll
-                                            # fail
-                                            'PGDATA': '/var/lib/postgresql/pgdata'
-                                        },
-                                        # uncomment to reset the WAL; it may resolve a
-                                        # stuck container after a
-                                        # redeploy.
-                                        # user="postgres",
-                                        # command=[
-                                        #     "pg_resetwal",
-                                        #     "/var/lib/postgresql/pgdata",
-                                        # ],
-                                        # uncomment for troubleshooting
-                                        # logging=ecs.LogDriver.aws_logs(stream_prefix="mon_postgres",
-                                        #                                log_retention=aws_logs.RetentionDays.ONE_DAY,
-                                        #                                ),
-                                        )
-        c_postgres.add_mount_points(
-            ecs.MountPoint(
-                read_only=False,
-                # must be the same as the PGDATA variable above
-                container_path='/var/lib/postgresql/pgdata',
-                source_volume=self.pgsql_data_vol.name,
-            ),
-        )
+        if self.enable_postgres:
+            c_postgres = task.add_container('postgres',
+                                            essential=True,
+                                            image=ecs.ContainerImage.from_registry(
+                                                'ghcr.io/iequ1/sysmon-postgres:1.3.1'),
+                                            port_mappings=[
+                                                ecs.PortMapping(container_port=5432)],
+                                            # It looks like postgres doesn't want to die sometimes
+                                            stop_timeout=Duration.seconds(100),
+                                            start_timeout=Duration.seconds(300),
+                                            environment={
+                                                'POSTGRES_PASSWORD': self.postgresPass,
+                                                'SYSMON_PASS': self.postgresPass,
+                                                'GRAFANA_PASS': self.postgresPass,
+                                                # must not use "/var/lib/postgresql/data", else it'll
+                                                # fail
+                                                'PGDATA': '/var/lib/postgresql/pgdata'
+                                            },
+                                            # uncomment to reset the WAL; it may resolve a
+                                            # stuck container after a
+                                            # redeploy.
+                                            # user="postgres",
+                                            # command=[
+                                            #     "pg_resetwal",
+                                            #     "/var/lib/postgresql/pgdata",
+                                            # ],
+                                            # uncomment for troubleshooting
+                                            # logging=ecs.LogDriver.aws_logs(stream_prefix="mon_postgres",
+                                            #                                log_retention=aws_logs.RetentionDays.ONE_DAY,
+                                            #                                ),
+                                            )
+            c_postgres.add_mount_points(
+                ecs.MountPoint(
+                    read_only=False,
+                    # must be the same as the PGDATA variable above
+                    container_path='/var/lib/postgresql/pgdata',
+                    source_volume=self.pgsql_data_vol.name,
+                ),
+            )
 
         c_grafana = task.add_container('grafana',
                                        essential=True,
@@ -511,7 +518,6 @@ class CdkEmqxClusterStack(cdk.Stack):
         listenerGrafana = nlb.add_listener('grafana', port=3000)
         listenerPrometheus = nlb.add_listener('prometheus', port=9090)
         listenerPushGateway = nlb.add_listener('pushgateway', port=9091)
-        listenerPostgres = nlb.add_listener('postgres', port=5432)
 
         listenerGrafana.add_targets(id='grafana', port=3000, targets=[service.load_balancer_target(
             container_name="grafana",
@@ -527,16 +533,19 @@ class CdkEmqxClusterStack(cdk.Stack):
             container_port=9091
         )]),
 
-        listenerPostgres.add_targets(id='postgres', port=5432, targets=[service.load_balancer_target(
-            container_name="postgres",
-            container_port=5432
-        )]),
+        if self.enable_postgres:
+            listenerPostgres = nlb.add_listener('postgres', port=5432)
+            listenerPostgres.add_targets(id='postgres', port=5432, targets=[service.load_balancer_target(
+                container_name="postgres",
+                container_port=5432
+            )]),
 
         self.mon_lb = self.loadbalancer_dnsname
         core.CfnOutput(self, "Monitoring Grafana",
                        value="%s:%d" % (self.mon_lb, 3000))
         core.CfnOutput(self, "Monitoring Prometheus",
                        value="%s:%d" % (self.mon_lb, 9090))
+
 
     def setup_emqx(self, N):
         vpc = self.vpc
@@ -1041,6 +1050,13 @@ class CdkEmqxClusterStack(cdk.Stack):
             self.enable_pulsar = strtobool(enable_pulsar)
         else:
             self.enable_pulsar = False
+
+        # deploy postgres?
+        enable_postgres = self.node.try_get_context('emqx_postgres_enable')
+        if enable_postgres and isinstance(enable_postgres, str):
+            self.enable_postgres = strtobool(enable_postgres)
+        else:
+            self.enable_postgres = True
 
         if self.emqx_ins_type != self.emqx_core_ins_type:
             logging.warning("👍🏼  Will deploy %d %s EMQX, %d %s EMQX, and %d %s Loadgens\n get emqx src by %s "

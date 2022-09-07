@@ -102,6 +102,11 @@ emqx_build_profile
 # default: False
 emqx_pulsar_enable
 
+# Enable Postgres
+# Whether to deploy Postgres.
+# default: True
+emqx_postgres_enable
+
 ```
 
 ## Make sure you have AWS credentials in ~/.aws/
