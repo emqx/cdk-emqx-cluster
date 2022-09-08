@@ -19,27 +19,11 @@ setuptools.setup(
     packages=setuptools.find_packages(where="cdk_emqx_cluster"),
 
     install_requires=[
-        "aws-cdk.aws-ec2==1.134.0",
-        "aws-cdk.core==1.134.0",
-        "aws-cdk.aws-ecs==1.134.0",
-        "aws-cdk.aws-ecs-patterns==1.134.0",
-        "aws-cdk.aws-elasticloadbalancingv2==1.134.0",
-        "aws-cdk.aws-elasticloadbalancingv2-targets==1.134.0",
-        "aws-cdk.aws-logs==1.134.0",
-        "aws-cdk.aws-route53==1.134.0",
-        "aws-cdk.aws-fis==1.134.0",
-        "aws-cdk.aws-iam==1.134.0",
-        "aws-cdk.aws-ssm==1.134.0",
-        "aws-cdk.aws-s3==1.134.0",
-        "aws-cdk.aws-s3-deployment==1.134.0",
-        "aws-cdk.aws-efs==1.134.0",
-        "aws-cdk.aws-msk==1.134.0",
-        "aws-cdk.aws-stepfunctions==1.134.0",
-        "aws-cdk.aws-stepfunctions-tasks==1.134.0",
+        "aws-cdk-lib>=2.0.0",
+        "constructs>=10.0.0",
         "pyyaml",
-        # jsii 1.65.0 is broken with out current cdk version
-        "jsii==1.61.0",
-        "attrs==21.4.0",
+        # experimental
+        "aws_cdk.aws_msk_alpha>=2.27.0a0",
     ],
 
     python_requires=">=3.6",

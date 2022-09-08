@@ -1,5 +1,5 @@
-# sha256:c2fda87e52bdedc1e3424e88187e24722793b4dc218e2be91d4501295387a02e
-FROM ghcr.io/emqx/docker-aws-cdk/aws-cdk:master
+#  sha256:8d6f89f74e8051a07204d65ac3f4d71e668f628415737397d3b50e6571c49485
+FROM ghcr.io/emqx/docker-aws-cdk/aws-cdk:2.27.0
 
 RUN python3 -m venv /venv
 COPY requirements.txt /setup/requirements.txt
