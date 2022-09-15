@@ -1,12 +1,6 @@
-
-from aws_cdk import core as cdk
-# For consistency with other languages, `cdk` is the preferred import name for
-# the CDK's core module.  The following line also imports it as `core` for use
-# with examples from the CDK Developer's Guide, which are in the process of
-# being updated to use `cdk`.  You may delete this import if you don't need it.
-# from aws_cdk import core
-from aws_cdk import (core as cdk, aws_ec2 as ec2, aws_ecs as ecs,
-                     core as core,
+import aws_cdk as cdk
+from constructs import Construct
+from aws_cdk import (aws_ec2 as ec2, aws_ecs as ecs,
                      aws_logs as aws_logs,
                      aws_fis as fis,
                      aws_iam as iam,
@@ -18,7 +12,7 @@ from aws_cdk import (core as cdk, aws_ec2 as ec2, aws_ecs as ecs,
                      aws_stepfunctions_tasks as tasks
                      )
 
-from aws_cdk.core import Duration, CfnParameter
+from aws_cdk import Duration, CfnParameter
 from base64 import b64encode
 import sys
 import logging
@@ -32,8 +26,8 @@ class CdkChaosTest(cdk.Stack):
     https://docs.aws.amazon.com/fis/latest/userguide/fis-actions-reference.html
     https://docs.aws.amazon.com/fis/latest/userguide/actions-ssm-agent.html
     """
-    def __init__(self, scope: cdk.Construct, construct_id: str, cluster_name: str,
-                 target_stack: core.Stack(), **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, cluster_name: str,
+                 target_stack: cdk.Stack(), **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
         self.cluster_name = cluster_name
         self.chaos_lambdas=dict()
@@ -162,10 +156,10 @@ class CdkChaosTest(cdk.Stack):
                                                       result_path=sfn.JsonPath.DISCARD
                                                       )
         wait_stable = sfn.Wait(self, "Wait for traffic stable",
-                               time=sfn.WaitTime.duration(core.Duration.seconds(300))) 
+                               time=sfn.WaitTime.duration(cdk.Duration.seconds(300)))
 
         wait_recover = sfn.Wait(self, "Wait for recover",
-                               time=sfn.WaitTime.duration(core.Duration.seconds(300))) 
+                               time=sfn.WaitTime.duration(cdk.Duration.seconds(300)))
 
         definition = s_stop_traffic \
             .next(s_start_traffic_sub) \
@@ -192,7 +186,7 @@ class CdkChaosTest(cdk.Stack):
                    'check_traffic',
                    'inject_fault']:
             self.chaos_lambdas[ln] = ChaosLambda(self, ln, vpc=vpc, role=role, security_groups=sgs,
-                                                 environment={'cluster_name': core.Stack.of(self).cluster_name}
+                                                 environment={'cluster_name': cdk.Stack.of(self).cluster_name}
                                                  )
             role=self.chaos_lambdas[ln].role
 
@@ -206,7 +200,7 @@ class CdkChaosTest(cdk.Stack):
                                                resources=['*']))
 
 class ChaosLambda(_lambda.Function):
-    def __init__(self, scope: cdk.Construct, name: str, **kwargs) -> None:
+    def __init__(self, scope: Construct, name: str, **kwargs) -> None:
         super().__init__(scope, 'lambda_'+name,
                          runtime=_lambda.Runtime.PYTHON_3_7,
                          code=_lambda.Code.from_asset('lambda'),
@@ -216,12 +210,12 @@ class ChaosLambda(_lambda.Function):
 
 
 class ControlCmd(ssm.CfnDocument):
-    def __init__(self, scope: cdk.Construct, construct_id: str, doc_name: str, service: str, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, doc_name: str, service: str, **kwargs) -> None:
         content = yaml.safe_load(open("./ssm_docs/" + doc_name).read())
         super().__init__(scope, construct_id,
-                         tags=[core.CfnTag(key='cluster', value=scope.cluster_name),
-                               core.CfnTag(key='service', value=service),
-                               core.CfnTag(key='cmd', value=construct_id)
+                         tags=[cdk.CfnTag(key='cluster', value=scope.cluster_name),
+                               cdk.CfnTag(key='service', value=service),
+                               cdk.CfnTag(key='cmd', value=construct_id)
                                ],
                          document_format='YAML',
                          document_type='Command',
@@ -249,9 +243,9 @@ class CdkExperiment(fis.CfnExperimentTemplate):
 
 class SsmDocExperiment(CdkExperiment):
     """ use 'aws ssm list-documents' to find all the available docs (AWS provides)"""
-    def __init__(self, scope: cdk.Construct, id: str, name:str, doc_parms : dict, desc:str, account='', doc_arn = None) -> None:
+    def __init__(self, scope: Construct, id: str, name:str, doc_parms : dict, desc:str, account='', doc_arn = None) -> None:
         if not doc_arn:
-            doc_arn = core.Arn.format(core.ArnComponents(service='ssm',
+            doc_arn = cdk.Arn.format(cdk.ArnComponents(service='ssm',
                                                          resource='document',
                                                          account=account,
                                                          resource_name=name
@@ -385,11 +379,14 @@ class IamRoleFis(iam.Role):
             json.loads(ssmPolicyJson))
         policy_ec2 = iam.PolicyDocument.from_json(
             json.loads(ec2PolicyJson))
-        return [policy_ec2, policy_ssm]
+        return {
+            "iam_role_fis_ec2": policy_ec2,
+            "iam_role_fis_ssm": policy_ssm,
+        }
 
 
 class CtrlTask(sfn.StateMachine):
-    def __init__(self, scope: cdk.Construct, name: str, lambda_fun: _lambda.Function,
+    def __init__(self, scope: Construct, name: str, lambda_fun: _lambda.Function,
                  parameters:dict=None, check_delay_s=3, retry_interval_sec=5, retry_max=100
                  ):
         init = sfn.Pass(scope, f"set param for {name}", parameters=parameters)
@@ -399,11 +396,11 @@ class CtrlTask(sfn.StateMachine):
         check = tasks.LambdaInvoke(scope, f"Check result of {name}",
                                    lambda_function=scope.chaos_lambdas['poll_result']
                                   )
-        check.add_retry(errors=['Retry'], interval=core.Duration.seconds(retry_interval_sec),
+        check.add_retry(errors=['Retry'], interval=cdk.Duration.seconds(retry_interval_sec),
                         max_attempts=retry_max)
 
         check_delay = sfn.Wait(scope, f"Delay before check {name}",
-                               time=sfn.WaitTime.duration(core.Duration.seconds(check_delay_s))
+                               time=sfn.WaitTime.duration(cdk.Duration.seconds(check_delay_s))
                                )
         definition = init.next(start)\
                          .next(check_delay) \
@@ -415,7 +412,7 @@ class CtrlTask(sfn.StateMachine):
 
 
 class ExecStepfun(tasks.StepFunctionsStartExecution):
-    def __init__(self, scope:core.Construct, name:str, lambda_name:str, **kwargs) -> None:
+    def __init__(self, scope: Construct, name: str, lambda_name: str, **kwargs) -> None:
         stm = CtrlTask(scope, name, scope.chaos_lambdas[lambda_name], **kwargs)
         super().__init__(scope, f'Call {name}',
                          state_machine=stm,

@@ -1,13 +1,9 @@
-from aws_cdk import core as cdk
+import aws_cdk as cdk
+from constructs import Construct
 from distutils.util import strtobool
 
-# For consistency with other languages, `cdk` is the preferred import name for
-# the CDK's core module.  The following line also imports it as `core` for use
-# with examples from the CDK Developer's Guide, which are in the process of
-# being updated to use `cdk`.  You may delete this import if you don't need it.
-#from aws_cdk import core
-from aws_cdk import (core as cdk, aws_ec2 as ec2, aws_ecs as ecs,
-                     core as core,
+from aws_cdk import (aws_ec2 as ec2, aws_ecs as ecs,
+                     Stack,
                      aws_logs as aws_logs,
                      aws_elasticloadbalancingv2 as elb,
                      aws_elasticloadbalancingv2_targets as target,
@@ -20,10 +16,10 @@ from aws_cdk import (core as cdk, aws_ec2 as ec2, aws_ecs as ecs,
                      aws_s3 as s3,
                      aws_s3_deployment as s3deploy,
                      aws_efs as efs,
-                     aws_msk as msk,
+                     aws_msk_alpha as msk,
                      aws_eks as eks,
                      aws_ecs_patterns as ecs_patterns)
-from aws_cdk.core import Duration, CfnParameter, RemovalPolicy
+from aws_cdk import Duration, CfnParameter, RemovalPolicy
 from base64 import b64encode
 import sys
 import logging
@@ -131,7 +127,7 @@ def emqx_setup_script(n: int, hostname: str) -> str:
 
 
 class CdkEmqxClusterStack(cdk.Stack):
-    def __init__(self, scope: cdk.Construct, construct_id: str, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
         self.exp1 = None
         self.kafka = None
@@ -180,14 +176,14 @@ class CdkEmqxClusterStack(cdk.Stack):
     # %% followings are internals
 
     def cfn_outputs(self):
-        core.CfnOutput(self, "ClusterName",
+        cdk.CfnOutput(self, "ClusterName",
                        value=self.cluster_name)
-        core.CfnOutput(self, "Loadbalancer",
+        cdk.CfnOutput(self, "Loadbalancer",
                        value=self.nlb.load_balancer_dns_name)
-        core.CfnOutput(self, "SSH Entrypoint",
+        cdk.CfnOutput(self, "SSH Entrypoint",
                        value=self.bastion.instance_public_ip)
-        core.CfnOutput(self, "Hosts are", value='\n'.join(self.hosts))
-        core.CfnOutput(self, "SSH Commands for Access",
+        cdk.CfnOutput(self, "Hosts are", value='\n'.join(self.hosts))
+        cdk.CfnOutput(self, "SSH Commands for Access",
                        value=f"ssh -A -l ec2-user {self.bastion.instance_public_ip} "
                              f"-L 8888:{self.mon_lb}:80 "
                              f"-L 13000:{self.mon_lb}:3000 "
@@ -196,13 +192,13 @@ class CdkEmqxClusterStack(cdk.Stack):
                              f"-L 28083:{self.mon_lb}:8083 "
                              "2>/dev/null"
                        )
-        core.CfnOutput(self, 'EFS ID:', value=self.shared_efs.file_system_id)
-        core.CfnOutput(self, 'Monitoring Postgres Password:', value=self.postgresPass)
+        cdk.CfnOutput(self, 'EFS ID:', value=self.shared_efs.file_system_id)
+        cdk.CfnOutput(self, 'Monitoring Postgres Password:', value=self.postgresPass)
 
         if self.kafka_ebs_vol_size:
-            core.CfnOutput(self, 'KAFKA Brokers:', value=self.kafka.bootstrap_brokers)
-            core.CfnOutput(self, 'KAFKA TLS Brokers:', value=self.kafka.bootstrap_brokers_tls)
-            core.CfnOutput(self, 'KAFKA ZK:', value=self.kafka.zookeeper_connection_string)
+            cdk.CfnOutput(self, 'KAFKA Brokers:', value=self.kafka.bootstrap_brokers)
+            cdk.CfnOutput(self, 'KAFKA TLS Brokers:', value=self.kafka.bootstrap_brokers_tls)
+            cdk.CfnOutput(self, 'KAFKA ZK:', value=self.kafka.zookeeper_connection_string)
 
     def setup_loadgen(self, N):
         vpc = self.vpc
@@ -315,10 +311,10 @@ class CdkEmqxClusterStack(cdk.Stack):
             self.loadgens.append(dnsname)
 
             if self.user_defined_tags:
-                core.Tags.of(ins).add(*self.user_defined_tags)
+                cdk.Tags.of(ins).add(*self.user_defined_tags)
             self.attach_s3_policy(vm_role)
-            core.Tags.of(lg_vm).add('service', 'loadgen')
-            core.Tags.of(lg_vm).add('cluster', self.cluster_name)
+            cdk.Tags.of(lg_vm).add('service', 'loadgen')
+            cdk.Tags.of(lg_vm).add('cluster', self.cluster_name)
 
     def setup_monitoring(self, targets):
         vpc = self.vpc
@@ -504,12 +500,11 @@ class CdkEmqxClusterStack(cdk.Stack):
                                        )
 
         service = ecs.FargateService(self, "EMQXMonitoring",
-                                     security_group=self.sg,
+                                     security_groups=[self.sg],
                                      cluster=cluster,
                                      task_definition=task,
                                      desired_count=1,
                                      assign_public_ip=False
-
                                      )
 
         service.connections.allow_from(
@@ -541,9 +536,9 @@ class CdkEmqxClusterStack(cdk.Stack):
             )]),
 
         self.mon_lb = self.loadbalancer_dnsname
-        core.CfnOutput(self, "Monitoring Grafana",
+        cdk.CfnOutput(self, "Monitoring Grafana",
                        value="%s:%d" % (self.mon_lb, 3000))
-        core.CfnOutput(self, "Monitoring Prometheus",
+        cdk.CfnOutput(self, "Monitoring Prometheus",
                        value="%s:%d" % (self.mon_lb, 9090))
 
 
@@ -638,7 +633,7 @@ class CdkEmqxClusterStack(cdk.Stack):
                               role=vm_role,
                               vpc=vpc,
                               vpc_subnets=ec2.SubnetSelection(
-                                  subnet_type=ec2.SubnetType.PRIVATE),
+                                  subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
                               )
             vm_role = vm.role
             self.attach_ssm_policy(vm_role)
@@ -654,12 +649,12 @@ class CdkEmqxClusterStack(cdk.Stack):
 
             # tagging
             if self.user_defined_tags:
-                core.Tags.of(vm).add(*self.user_defined_tags)
-            core.Tags.of(vm).add('service', 'emqx')
+                cdk.Tags.of(vm).add(*self.user_defined_tags)
+            cdk.Tags.of(vm).add('service', 'emqx')
 
             # tag ins for chaos testing with AWS FIS
-            core.Tags.of(vm).add('chaos_ready', 'true')
-            core.Tags.of(vm).add('cluster', self.cluster_name)
+            cdk.Tags.of(vm).add('chaos_ready', 'true')
+            cdk.Tags.of(vm).add('cluster', self.cluster_name)
 
         # Add LB endpoints
         listener = nlb.add_listener("port1883", port=1883)
@@ -755,8 +750,8 @@ class CdkEmqxClusterStack(cdk.Stack):
             self.hosts.append(dnsname)
 
             if self.user_defined_tags:
-                core.Tags.of(ins).add(*self.user_defined_tags)
-            core.Tags.of(ins).add('service', 'etcd')
+                cdk.Tags.of(ins).add(*self.user_defined_tags)
+            cdk.Tags.of(ins).add('service', 'etcd')
 
     def setup_vpc(self):
         max_azs = 2 if self.kafka_ebs_vol_size or self.enable_pulsar else 1
@@ -771,7 +766,7 @@ class CdkEmqxClusterStack(cdk.Stack):
                               cidr_mask=24
                           ),
                           ec2.SubnetConfiguration(
-                              subnet_type=ec2.SubnetType.PRIVATE,
+                              subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS,
                               name="Private",
                               cidr_mask=24
                           )],
@@ -780,7 +775,7 @@ class CdkEmqxClusterStack(cdk.Stack):
         self.vpc = vpc
 
     def set_cluster_name(self):
-        self.cluster_name = core.Stack.of(self).stack_name
+        self.cluster_name = cdk.Stack.of(self).stack_name
         if not self.cluster_name:
             sys.exit("Cannot define cluster_name")
         self.domain = ".int.%s" % self.cluster_name
@@ -1107,7 +1102,7 @@ class CdkEmqxClusterStack(cdk.Stack):
         policy = self.s3_bucket_policy
         if not policy:
             # https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-arn-format.html
-            resource = core.Arn.format(core.ArnComponents(service='s3',
+            resource = cdk.Arn.format(cdk.ArnComponents(service='s3',
                                                           account='',  # acc should not be set for s3 arn
                                                           region='',  # region should not be set for s3 arn
                                                           resource=self.s3_bucket_name,  # bucket name
@@ -1144,8 +1139,8 @@ class CdkEmqxClusterStack(cdk.Stack):
                                      volume_size=int(self.kafka_ebs_vol_size)),
                                  vpc=self.vpc, number_of_broker_nodes=1,
                                  vpc_subnets=ec2.SubnetSelection(
-                                     subnet_type=ec2.SubnetType.PRIVATE, one_per_az=True),
-                                 removal_policy=core.RemovalPolicy.DESTROY,
+                                     subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS, one_per_az=True),
+                                 removal_policy=cdk.RemovalPolicy.DESTROY,
                                  security_groups=[kafka_sg],
                                  encryption_in_transit = msk.EncryptionInTransitConfig(
                                      client_broker=msk.ClientBrokerEncryption.TLS_PLAINTEXT)
@@ -1203,7 +1198,7 @@ class CdkEmqxClusterStack(cdk.Stack):
             id=self.cluster_name + "-pulsar",
             vpc=self.vpc,
             vpc_subnets=[ec2.SubnetSelection(
-                subnet_type=ec2.SubnetType.PRIVATE
+                subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
             )],
             endpoint_access=eks.EndpointAccess.PRIVATE,
             version=eks.KubernetesVersion.V1_21,
@@ -1223,7 +1218,7 @@ class CdkEmqxClusterStack(cdk.Stack):
                 ssh_key_name=self.ssh_key,
             ),
         )
-        nodegroup.apply_removal_policy(core.RemovalPolicy.DESTROY)
+        nodegroup.apply_removal_policy(cdk.RemovalPolicy.DESTROY)
         # install cert-manager to enable tls self-signed certs
         # https://github.com/aws/aws-cdk/issues/8340#issuecomment-639372288
         # https://github.com/apache/pulsar/issues/14547
@@ -1320,9 +1315,9 @@ class CdkEmqxClusterStack(cdk.Stack):
             object_namespace="pulsar",
             json_path=".status.loadBalancer.ingress[0].hostname",
         )
-        core.CfnOutput(self, "Pulsar Proxy URL",
+        cdk.CfnOutput(self, "Pulsar Proxy URL",
                        value=f"pulsar+ssl://{service_address.value}:6651")
-        core.CfnOutput(self, "Pulsar Proxy URL command (run in bastion)",
+        cdk.CfnOutput(self, "Pulsar Proxy URL command (run in bastion)",
                        value=f'kubectl -n pulsar get svc {release_name + "-proxy"} '
                               '-o=jsonpath="{.status.loadBalancer.ingress[0].hostname}"')
         self.pulsar_eks_cluster = eks_cluster
@@ -1351,9 +1346,9 @@ class CdkEmqxClusterStack(cdk.Stack):
         else:
             # Create new one with RemovalPolicy flag
             if self.retain_efs:
-                remove_policy = core.RemovalPolicy.RETAIN
+                remove_policy = cdk.RemovalPolicy.RETAIN
             else:
-                remove_policy = core.RemovalPolicy.DESTROY
+                remove_policy = cdk.RemovalPolicy.DESTROY
             self.shared_efs = efs.FileSystem(self, id=fsid, vpc=self.vpc,
                                              removal_policy=remove_policy,
                                              lifecycle_policy=efs.LifecyclePolicy.AFTER_14_DAYS,
