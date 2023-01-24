@@ -16,7 +16,7 @@ from aws_cdk import (aws_ec2 as ec2, aws_ecs as ecs,
                      aws_s3 as s3,
                      aws_s3_deployment as s3deploy,
                      aws_efs as efs,
-                     aws_msk_alpha as msk,
+                     aws_msk as msk,
                      aws_eks as eks,
                      aws_ecs_patterns as ecs_patterns)
 from aws_cdk import Duration, CfnParameter, RemovalPolicy
@@ -30,7 +30,7 @@ import random
 import string
 import os
 
-from cdk_chaos_test import SsmDocExperiment,IamRoleFis,ControlCmd
+from cdk_emqx_cluster.cdk_chaos_test import cdk_chaos_test
 
 ubuntu_arm_ami = ec2.MachineImage.from_ssm_parameter('/aws/service/canonical/ubuntu/server/focal/stable/current/arm64/hvm/ebs-gp2/ami-id')
 ubuntu_x86_64_ami = ec2.MachineImage.from_ssm_parameter('/aws/service/canonical/ubuntu/server/focal/stable/current/amd64/hvm/ebs-gp2/ami-id')
@@ -728,12 +728,13 @@ class CdkEmqxClusterStack(cdk.Stack):
                                          'echo ETCD_INITIAL_CLUSTER_STATE=new >> /etc/default/etcd',
                                          'echo ETCD_INITIAL_CLUSTER_TOKEN=emqx-cluster-1 >> /etc/default/etcd',
                                          'echo ETCD_INITIAL_CLUSTER="infra0=http://etcd0${EMQX_CLUSTER_DOMAIN}:2380,infra1=http://etcd1${EMQX_CLUSTER_DOMAIN}:2380,infra2=http://etcd2${EMQX_CLUSTER_DOMAIN}:2380" >> /etc/default/etcd',
+                                         'echo ETCD_UNSUPPORTED_ARCH=arm64 >> /etc/default/etcd',
                                          'systemctl restart etcd'
                                          )
             ins = ec2.Instance(self, id="etcd.%d" % n,
                                instance_type=ec2.InstanceType(
-                                   instance_type_identifier="t3a.nano"),
-                               machine_image=ubuntu_x86_64_ami,
+                                   instance_type_identifier="t4g.nano"),
+                               machine_image=ubuntu_arm_ami,
                                user_data=cloud_user_data,
                                security_group=sg,
                                key_name=key,
@@ -789,7 +790,7 @@ class CdkEmqxClusterStack(cdk.Stack):
                                               )
 
     def setup_ssh_key(self):
-        self.ssh_key = CfnParameter(self, "ssh key",
+        self.ssh_key = CfnParameter(self, "sshkey",
                                     type="String", default="key_ireland",
                                     description="Specify your SSH key").value_as_string
 

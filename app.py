@@ -5,8 +5,7 @@ import sys
 from aws_cdk import App
 
 from cdk_emqx_cluster.cdk_emqx_cluster_stack import CdkEmqxClusterStack
-from cdk_emqx_cluster.cdk_chaos_test import CdkChaosTest
-
+from cdk_emqx_cluster.cdk_chaos_test import cdk_chaos_test
 
 app = App()
 stack_name = os.getenv('CDK_EMQX_CLUSTERNAME')
@@ -32,9 +31,9 @@ emqx = CdkEmqxClusterStack(app, "CdkEmqxClusterStack", stack_name = stack_name
     )
 
 # Stack for running chaos test including SSM and FIS resources
-CdkChaosTest(app, "CDKChaosTest", stack_name = stack_name + 'chaostest'
-             , target_stack = emqx
-             , cluster_name = stack_name)
+cdk_chaos_test.CdkChaosTest(app, "CDKChaosTest", stack_name = stack_name + 'chaostest'
+                            , target_stack = emqx
+                            , cluster_name = stack_name)
 
 
 app.synth()

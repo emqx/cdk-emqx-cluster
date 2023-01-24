@@ -273,7 +273,7 @@ The `emqx_ebs` is needed since these instances do not have storage by default.
 ## Kafka data bridge test with emqx enterprise
 
 ```bash
-CDK_EMQX_CLUSTERNAME=william-k2 cdk deploy --all  -c emqx_n=1 -c lg_n=2 -c emqx_ins_type="m5.4xlarge" -c loadgen_ins_type="m5n.4xlarge" -c emqx_src="wget https://www.emqx.com/en/downloads/enterprise/4.3.5/emqx-ee-ubuntu20.04-4.3.5-amd64.deb" -c kafka_ebs=20 -c retain_efs='fs-0bbcde0cf702b4ccb' -c emqx_monitoring_postgres_password=cdniylye
+CDK_EMQX_CLUSTERNAME=william-k2 cdk deploy --all  -c emqx_n=1 -c lg_n=2 -c emqx_ins_type="m5.4xlarge" -c loadgen_ins_type="m5n.4xlarge" -c emqx_src="wget https://www.emqx.com/en/downloads/enterprise/4.3.5/emqx-ee-ubuntu20.04-4.3.5-amd64.deb" -c kafka_ebs=20 -c retain_efs='fs-0bbcde0cf702b4ccb' -c emqx_monitoring_postgres_password=cdniylye --parameters sshkey=qzhuyan
 ```
 
 ## Pulsar data bridge test with emqx enterprise
@@ -320,13 +320,21 @@ When deploying to a new region, run `cdk boostrap`.
 
 Note: this requires the executing user to have `ecr:CreateRepository` permissions in the region.
 
-Also, for convenience, make sure a key pair named `key_ireland` exists in your new region.
+Also, make sure there is a key pair you have access to in your new region.
+
+You could create the key pair via: 
 
 ```sh
 aws ec2 create-key-pair \
-      --key-name key_ireland \
+      --key-name "mykey_${USER}" \
       --key-type rsa \
       --key-format pem \
       --query "KeyMaterial" \
       --output text > ~/.ssh/id_rsa.emqx.sa-east
+```
+
+OR append following override in cdk cli to use existing key.
+
+```sh
+--parameters sshkey="mykey_${USER}"
 ```
