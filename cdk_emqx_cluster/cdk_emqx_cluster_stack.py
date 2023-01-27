@@ -397,7 +397,7 @@ class CdkEmqxClusterStack(cdk.Stack):
         task.add_volume(name='prom_config')
         c_config = task.add_container('config-prometheus',
                                       image=ecs.ContainerImage.from_registry(
-                                          'bash'),
+                                          'public.ecr.aws/docker/library/bash:devel-alpine3.16'),
                                       essential=False,
                                       # uncomment for troubleshooting
                                       # logging=ecs.LogDriver.aws_logs(stream_prefix="mon_config_prometheus",
