@@ -74,7 +74,7 @@ maybe_install_from_src() {
            -e HOME="/root" \
            "$EMQX_BUILDER_IMAGE" \
            bash -c "make $EMQX_BUILD_PROFILE"
-    dpkg -i ./_packages/emqx/*.deb
+    dpkg -i ./_packages/emqx*/*.deb
     disable_docker
   fi
   popd
@@ -184,6 +184,10 @@ gateway.exproto {
   }
 }
 
+api_key {
+  bootstrap_file = "/tmp/emqx_bootstrap.txt"
+}
+
 limiter.connection.rate = infinity
 limiter.message_in.rate = infinity
 limiter.message_routing.rate = infinity
@@ -239,9 +243,13 @@ maybe_install_license() {
   fi
 }
 
-install_helpers(){
+install_helpers() {
   cluster=$(hostname -f | cut -d . -f 3)
   aws s3 cp --recursive "s3://emqx-cdk-cluster/${cluster}/bin" /usr/local/bin/
+}
+
+bootstrap_api_user() {
+  echo "cdkuser:N0tpublic" > /tmp/emqx_bootstrap.txt
 }
 
 # Assume we have emqx src in PWD
@@ -251,7 +259,7 @@ maybe_mount_data
 maybe_install_from_deb
 maybe_install_from_src
 
-EMQX_VERSION=$(dpkg -s emqx emqx-ee | grep Version | awk '{print $2}')
+EMQX_VERSION=$(dpkg -s emqx emqx-ee emqx-enterprise | grep Version | awk '{print $2}')
 
 case "${EMQX_VERSION}" in
   4*)
@@ -267,4 +275,5 @@ esac
 
 maybe_install_license
 install_helpers
+bootstrap_api_user
 systemctl start emqx
