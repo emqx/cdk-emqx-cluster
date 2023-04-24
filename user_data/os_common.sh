@@ -8,7 +8,7 @@ echo "*      hard    nofile      100000000"  >> /etc/security/limits.conf
 cat >> /etc/sysctl.d/99-sysctl.conf <<EOF
 net.ipv4.tcp_tw_reuse=1
 fs.nr_open=1000000000
-net.ipv4.ip_local_port_range=1025 65534
+net.ipv4.ip_local_port_range=1024 65535
 net.ipv4.udp_mem=74583000 499445000 749166000
 EOF
 
