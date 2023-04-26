@@ -143,11 +143,29 @@ cluster {
 listeners.tcp.default {
   acceptors: 128
   max_connections: infinity
+  limiter.connection.rate = infinity
+  limiter.message_in.rate = infinity
+  limiter.message_routing.rate = infinity
+  limiter.bytes_in.rate = infinity
+  tcp_options {
+  buffer = 1KB
+  recbuf = 1KB
+  sndbuf = 1KB
+  }
 }
 
 listeners.ssl.default {
   acceptors: 128
   max_connections: infinity
+  limiter.connection.rate = infinity
+  limiter.message_in.rate = infinity
+  limiter.message_routing.rate = infinity
+  limiter.bytes_in.rate = infinity
+  tcp_options {
+  buffer = 1KB
+  recbuf = 1KB
+  sndbuf = 1KB
+  }
 }
 
 listeners.quic.default {
@@ -156,6 +174,10 @@ listeners.quic.default {
   max_connections = infinity
   keyfile = "/etc/emqx/certs/key.pem"
   certfile = "/etc/emqx/certs/cert.pem"
+  limiter.connection.rate = infinity
+  limiter.message_in.rate = infinity
+  limiter.message_routing.rate = infinity
+  limiter.bytes_in.rate = infinity
 }
 
 conn_congestion {
@@ -202,8 +224,15 @@ sysmon.top {
 }
 
 node {
-  max_ports = 134217727
-  process_limit = 134217727
+  max_ports = 1010000
+  process_limit = 1010000
+}
+
+zone {
+ default {
+  conn_congestion.enable_alarm = false
+  force_gc = false
+ }
 }
 
 EOF

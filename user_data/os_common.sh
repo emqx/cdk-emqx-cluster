@@ -24,6 +24,9 @@ echo "deb https://packages.erlang-solutions.com/ubuntu focal contrib" | tee /etc
 apt update
 apt install -y esl-erlang=1:24.2.1-1
 
+cluster=$(hostname -f | cut -d . -f 3)
+aws s3 cp --recursive "s3://emqx-cdk-cluster/${cluster}/bin" /usr/local/bin/
+
 ## Install node exporter
 case $(uname -m) in
     aarch64)

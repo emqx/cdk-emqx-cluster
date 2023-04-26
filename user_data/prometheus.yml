@@ -26,12 +26,14 @@ scrape_configs:
 
     static_configs:
       - targets: ["localhost:9090"]
-  - job_name: "pushgateway"
-    # metrics_path defaults to '/metrics'
-    # scheme defaults to 'http'.
+
+  - job_name: "emqx metrics"
+    metrics_path: /api/v5/prometheus/stats
+    scrape_interval: 5s
     honor_labels: true
     static_configs:
-      - targets: ["localhost:9091"]
+      # EMQX IP endpoint
+      - targets: [${EMQX_PROMS}]
 
   - job_name: "emqx node exporter"
     static_configs:

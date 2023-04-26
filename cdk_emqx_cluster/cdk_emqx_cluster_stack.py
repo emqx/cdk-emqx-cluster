@@ -323,6 +323,7 @@ class CdkEmqxClusterStack(cdk.Stack):
         with open("./user_data/prometheus.yml") as f:
             prometheus_config_tmpl = string.Template(f.read())
             prometheus_config = prometheus_config_tmpl.safe_substitute(
+                EMQX_PROMS = ','.join([f'"{t}:18083"' for t in targets]),
                 EMQX_NODES = ','.join([f'"{t}:9100"' for t in targets]),
                 EMQTTB_NODES = ','.join([f'"{t}:8017"' for t in self.loadgens]),
             )
@@ -848,12 +849,13 @@ class CdkEmqxClusterStack(cdk.Stack):
             chmod 700 get_helm.sh
             ./get_helm.sh --version v3.8.2
             yum install -y tmux amazon-efs-utils
+            aws s3 cp --recursive "s3://emqx-cdk-cluster/%s/bin" /usr/local/bin/
             echo "search int.%s" >> /etc/resolv.conf
             sudo -u ec2-user echo 'HOST *' > ~ec2-user/.ssh/config
             sudo -u ec2-user echo "USER ubuntu" >> ~ec2-user/.ssh/config
             mkdir -p /mnt/efs-data
             mount -t efs -o tls %s:/ /mnt/efs-data
-            """ % (self.cluster_name, self.shared_efs.file_system_id)
+            """ % (self.cluster_name, self.cluster_name, self.shared_efs.file_system_id)
         ))
         if self.kafka_ebs_vol_size:
             bastion.instance.add_user_data(
