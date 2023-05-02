@@ -322,7 +322,7 @@ Note: this requires the executing user to have `ecr:CreateRepository` permission
 
 Also, make sure there is a key pair you have access to in your new region.
 
-You could create the key pair via: 
+You could create the key pair via:
 
 ```sh
 aws ec2 create-key-pair \
@@ -337,4 +337,86 @@ OR append following override in cdk cli to use existing key.
 
 ```sh
 --parameters sshkey="mykey_${USER}"
+```
+
+# Troubleshooting
+
+## Monitoring Cluster hangs deployment
+
+If your deploy hangs forever waiting for the ECS Monitoring Cluster to
+be ready, and you are using an existing EFS ID (with Postgres data),
+then probably the previous Postgres didn't shutdown properly and you
+need to reset its WAL (write ahead log).
+
+A quick and dirty way to do it:
+
+### Set the service desired count to 0
+
+Change `$YOUR_CDK_CLUSTER_NAME` to the appropriate value.
+
+```sh
+ (
+    set -x
+
+    AWS_CLUSTER_NAME=$(
+      aws ecs list-clusters \
+      | jq -r '.clusterArns[]' \
+      | grep $YOUR_CDK_CLUSTER_NAME \
+      | cut -d"/" -f2)
+    AWS_SERVICE_NAME=$(
+      aws ecs list-services --cluster ${AWS_CLUSTER_NAME} \
+        | jq -r '.serviceArns[]' \
+        | cut -d"/" -f3 )
+    aws ecs update-service \
+        --cluster ${AWS_CLUSTER_NAME} \
+        --service ${AWS_SERVICE_NAME} \
+        --desired-count 0
+  )
+```
+
+This should make the deploy finalize.
+
+### Manually fix the WAL from the Bastion
+
+Use the SSH command from CDK to log into the Bastion machine and then
+install Docker.
+
+```sh
+sudo yum -y install docker
+sudo systemctl start docker
+sudo docker run --rm -it -v /mnt/efs-data/pgsql_data/:/external/ ghcr.io/iequ1/sysmon-postgres:1.3.1 bash
+```
+
+Inside Docker:
+
+```sh
+su postgres
+cd /external
+pg_resetwal -f /external
+```
+
+Exit Docker.
+
+### Restart monitoring cluster
+
+Change `$YOUR_CDK_CLUSTER_NAME` to the appropriate value.
+
+```sh
+ (
+    set -x
+
+    AWS_CLUSTER_NAME=$(
+      aws ecs list-clusters \
+      | jq -r '.clusterArns[]' \
+      | grep $YOUR_CDK_CLUSTER_NAME \
+      | cut -d"/" -f2)
+    AWS_SERVICE_NAME=$(
+      aws ecs list-services --cluster ${AWS_CLUSTER_NAME} \
+        | jq -r '.serviceArns[]' \
+        | cut -d"/" -f3 )
+    aws ecs update-service \
+        --cluster ${AWS_CLUSTER_NAME} \
+        --service ${AWS_SERVICE_NAME} \
+        --desired-count 1
+  )
 ```

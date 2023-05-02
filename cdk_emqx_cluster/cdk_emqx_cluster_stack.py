@@ -471,6 +471,7 @@ class CdkEmqxClusterStack(cdk.Stack):
                                             # user="postgres",
                                             # command=[
                                             #     "pg_resetwal",
+                                            #     "-f",
                                             #     "/var/lib/postgresql/pgdata",
                                             # ],
                                             # uncomment for troubleshooting
