@@ -43,6 +43,16 @@ loadgen_ins_type
 # default: 1
 lg_n
 
+# External resource instance TYPE
+# Nodes for external resources are just created and not used by the cluster.
+# They may be used to provision external resources like Redis, Postgres, etc.
+# default: t3a.small
+ext_ins_type
+
+# Number of nodes for external resources.
+# default: 0
+ext_n
+
 # Extra EBS vol size (in GB) for EMQX DATA per EMQX Instance
 # default: null
 emqx_ebs

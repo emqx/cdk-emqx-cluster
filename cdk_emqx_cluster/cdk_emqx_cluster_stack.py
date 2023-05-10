@@ -1,34 +1,34 @@
-import aws_cdk as cdk
-from constructs import Construct
-from distutils.util import strtobool
-
-from aws_cdk import (aws_ec2 as ec2, aws_ecs as ecs,
-                     Stack,
-                     aws_logs as aws_logs,
-                     aws_elasticloadbalancingv2 as elb,
-                     aws_elasticloadbalancingv2_targets as target,
-                     aws_route53 as r53,
-                     aws_route53_targets as r53_targets,
-                     aws_elasticloadbalancingv2 as elbv2,
-                     aws_fis as fis,
-                     aws_iam as iam,
-                     aws_ssm as ssm,
-                     aws_s3 as s3,
-                     aws_s3_deployment as s3deploy,
-                     aws_efs as efs,
-                     aws_msk as msk,
-                     aws_eks as eks,
-                     aws_ecs_patterns as ecs_patterns)
-from aws_cdk import Duration, CfnParameter, RemovalPolicy
-from base64 import b64encode
-import sys
-import logging
-import textwrap
-import yaml
 import json
+import logging
+import os
 import random
 import string
-import os
+import sys
+import textwrap
+from base64 import b64encode
+from distutils.util import strtobool
+
+import aws_cdk as cdk
+import yaml
+from aws_cdk import CfnParameter, Duration, RemovalPolicy, Stack
+from aws_cdk import aws_ec2 as ec2
+from aws_cdk import aws_ecs as ecs
+from aws_cdk import aws_ecs_patterns as ecs_patterns
+from aws_cdk import aws_efs as efs
+from aws_cdk import aws_eks as eks
+from aws_cdk import aws_elasticloadbalancingv2 as elb
+from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+from aws_cdk import aws_elasticloadbalancingv2_targets as target
+from aws_cdk import aws_fis as fis
+from aws_cdk import aws_iam as iam
+from aws_cdk import aws_logs as aws_logs
+from aws_cdk import aws_msk as msk
+from aws_cdk import aws_route53 as r53
+from aws_cdk import aws_route53_targets as r53_targets
+from aws_cdk import aws_s3 as s3
+from aws_cdk import aws_s3_deployment as s3deploy
+from aws_cdk import aws_ssm as ssm
+from constructs import Construct
 
 from cdk_emqx_cluster.cdk_chaos_test import cdk_chaos_test
 
@@ -40,6 +40,9 @@ with open("./user_data/emqx_init.sh") as f:
 
 with open("./user_data/loadgen_init.sh") as f:
     loadgen_user_data = f.read()
+
+with open("./user_data/ext_init.sh") as f:
+    ext_user_data = f.read()
 
 with open("./user_data/os_common.sh") as f:
     os_common_user_data = f.read()
@@ -165,6 +168,7 @@ class CdkEmqxClusterStack(cdk.Stack):
         self.setup_emqx(self.numEmqx)
         self.setup_etcd()
         self.setup_loadgen(self.numLg)
+        self.setup_ext(self.numExt)
         self.setup_monitoring(self.hosts)
 
         # Setup Bastion
@@ -311,10 +315,85 @@ class CdkEmqxClusterStack(cdk.Stack):
             self.loadgens.append(dnsname)
 
             if self.user_defined_tags:
-                cdk.Tags.of(ins).add(*self.user_defined_tags)
+                cdk.Tags.of(lg_vm).add(*self.user_defined_tags)
             self.attach_s3_policy(vm_role)
             cdk.Tags.of(lg_vm).add('service', 'loadgen')
             cdk.Tags.of(lg_vm).add('cluster', self.cluster_name)
+
+    def setup_ext(self, N):
+        vpc = self.vpc
+        zone = self.int_zone
+        sg = self.sg
+        key = self.ssh_key
+
+        # we let CDK create the first role for this service in the
+        # first instance and them use it in subsequent instances
+        vm_role = None
+
+        for n in range(0, N):
+            name = "ext-%d" % n
+            bootScript = ec2.UserData.custom(ext_user_data)
+
+            persistentConfig = ec2.UserData.for_linux()
+
+            runscript = ec2.UserData.for_linux()
+            # make the hostname persistent across reboots
+            runscript.add_commands("""\
+            if ! grep -q 'preserve_hostname: true' /etc/cloud/cloud.cfg
+            then
+              if ! grep -q 'preserve_hostname:' /etc/cloud/cloud.cfg
+              then
+                echo 'preserve_hostname: true' >> /etc/cloud/cloud.cfg
+              else
+                sed -i -e 's/preserve_hostname: false/preserve_hostname: true/' /etc/cloud/cloud.cfg
+              fi
+            fi
+            """)
+
+            multipartUserData = ec2.MultipartUserData()
+            multipartUserData.add_part(
+                ec2.MultipartBody.from_user_data(user_data_os_common))
+            multipartUserData.add_part(
+                ec2.MultipartBody.from_user_data(bootScript))
+            multipartUserData.add_part(
+                ec2.MultipartBody.from_user_data(persistentConfig))
+            multipartUserData.add_part(
+                ec2.MultipartBody.from_user_data(runscript))
+
+            if (self.ext_ins_type[2] == 'g'): #Graviton2
+                ami = ubuntu_arm_ami
+            else:
+                ami = ubuntu_x86_64_ami
+
+            ext_vm = ec2.Instance(self, id=name,
+                                  instance_type=ec2.InstanceType(
+                                      instance_type_identifier=self.ext_ins_type),
+                                  machine_image=ami,
+                                  user_data=multipartUserData,
+                                  security_group=sg,
+                                  key_name=key,
+                                  role=vm_role,
+                                  vpc=vpc,
+                                  source_dest_check=False)
+            vm_role = ext_vm.role
+            self.attach_ssm_policy(vm_role)
+
+            dnsname = "%s%s" % (name, self.domain)
+            r53.ARecord(self,
+                        id=dnsname,
+                        record_name=dnsname,
+                        zone=zone,
+                        target=r53.RecordTarget([ext_vm.instance_private_ip])
+                        )
+
+            self.hosts.append(dnsname)
+
+            if self.user_defined_tags:
+                cdk.Tags.of(ext_vm).add(*self.user_defined_tags)
+            self.attach_s3_policy(vm_role)
+            cdk.Tags.of(ext_vm).add('service', 'ext')
+            cdk.Tags.of(ext_vm).add('cluster', self.cluster_name)
+
 
     def setup_monitoring(self, targets):
         vpc = self.vpc
@@ -988,6 +1067,14 @@ class CdkEmqxClusterStack(cdk.Stack):
                 f"invalid `emqx_num_core_nodes': {numCoreNodes}")
         self.numCoreNodes = numCoreNodes
 
+
+        # External resource Instance Type
+        self.ext_ins_type = self.node.try_get_context(
+            'ext_ins_type') or 't3a.small'
+
+        # Number of LOADGENS
+        self.numExt = int(self.node.try_get_context('ext_n') or 0)
+
         # LOADGEN Instance Type
         # suggested m5n.xlarge
         self.loadgen_ins_type = self.node.try_get_context(
@@ -1056,21 +1143,28 @@ class CdkEmqxClusterStack(cdk.Stack):
             self.enable_postgres = True
 
         if self.emqx_ins_type != self.emqx_core_ins_type:
-            logging.warning("👍🏼  Will deploy %d %s EMQX, %d %s EMQX, and %d %s Loadgens\n get emqx src by %s "
+            logging.warning("👍🏼  Will deploy %d %s EMQX, %d %s EMQX, %d %s Loadgens and "
+                            "%d %s node(s) for external resources\n get emqx src by %s "
                             % (self.numEmqx - self.numCoreNodes,
                                self.emqx_ins_type,
                                self.numCoreNodes,
                                self.emqx_core_ins_type,
                                self.numLg,
                                self.loadgen_ins_type,
+                               self.numExt,
+                               self.ext_ins_type,
                                self.emqx_src_cmd))
+
         else:
-            logging.warning("👍🏼  Will deploy %d %s EMQX and %d %s Loadgens\n get emqx src by %s "
+            logging.warning("👍🏼  Will deploy %d %s EMQX and %d %s Loadgens and "
+                            "%d %s node(s) for external resources\n get emqx src by %s "
                             % (self.numEmqx,
                                self.emqx_ins_type,
                                self.numLg,
                                self.loadgen_ins_type,
-                               self.emqx_src_cmd))
+                               self.numExt,
+                               self.ext_ins_type,
+                               self.emqx_src_cmd,))
         logging.warning(f"⚒  Image used to build EMQ X: {self.emqx_builder_image}")
         logging.warning(f"⚒  Command used to build EMQ X: `make {self.emqx_build_profile}'")
 
