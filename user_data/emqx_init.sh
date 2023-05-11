@@ -74,7 +74,7 @@ maybe_install_from_src() {
            -e HOME="/root" \
            "$EMQX_BUILDER_IMAGE" \
            bash -c "make $EMQX_BUILD_PROFILE"
-    dpkg -i ./_packages/emqx/*.deb
+    dpkg -i ./_packages/emqx*/*.deb
     disable_docker
   fi
   popd
@@ -251,7 +251,7 @@ maybe_mount_data
 maybe_install_from_deb
 maybe_install_from_src
 
-EMQX_VERSION=$(dpkg -s emqx emqx-ee | grep Version | awk '{print $2}')
+EMQX_VERSION=$(dpkg -s emqx emqx-ee emqx-enterprise | grep Version | awk '{print $2}')
 
 case "${EMQX_VERSION}" in
   4*)
