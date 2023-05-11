@@ -117,6 +117,12 @@ EOF
   esac
 }
 
+api_keys() {
+  cat <<EOF >> /etc/emqx/api_keys.conf
+key:secret
+EOF
+}
+
 config_overrides_v5() {
   domain=$(dnsdomainname)
   nodename="emqx@`hostname -f`"
@@ -202,6 +208,10 @@ node {
   process_limit = 134217727
 }
 
+api_key {
+  bootstrap_file = "/etc/emqx/api_keys.conf"
+}
+
 EOF
 }
 
@@ -258,6 +268,7 @@ case "${EMQX_VERSION}" in
     config_overrides_v4
     ;;
   5*)
+    api_keys
     config_overrides_v5
     maybe_config_overrides_v5
     ;;
