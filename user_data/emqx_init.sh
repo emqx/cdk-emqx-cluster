@@ -74,7 +74,7 @@ maybe_install_from_src() {
            -e HOME="/root" \
            "$EMQX_BUILDER_IMAGE" \
            bash -c "make $EMQX_BUILD_PROFILE"
-    dpkg -i ./_packages/emqx/*.deb
+    dpkg -i ./_packages/emqx*/*.deb
     disable_docker
   fi
   popd
@@ -115,6 +115,12 @@ node {
 EOF
       ;;
   esac
+}
+
+api_keys() {
+  cat <<EOF >> /etc/emqx/api_keys.conf
+key:secret
+EOF
 }
 
 config_overrides_v5() {
@@ -202,6 +208,10 @@ node {
   process_limit = 134217727
 }
 
+api_key {
+  bootstrap_file = "/etc/emqx/api_keys.conf"
+}
+
 EOF
 }
 
@@ -251,13 +261,14 @@ maybe_mount_data
 maybe_install_from_deb
 maybe_install_from_src
 
-EMQX_VERSION=$(dpkg -s emqx emqx-ee | grep Version | awk '{print $2}')
+EMQX_VERSION=$(dpkg -s emqx emqx-ee emqx-enterprise | grep Version | awk '{print $2}')
 
 case "${EMQX_VERSION}" in
   4*)
     config_overrides_v4
     ;;
   5*)
+    api_keys
     config_overrides_v5
     maybe_config_overrides_v5
     ;;
