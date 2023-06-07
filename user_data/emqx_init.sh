@@ -160,8 +160,12 @@ listeners.quic.default {
   enabled = true
   bind = "0.0.0.0:14567"
   max_connections = infinity
-  keyfile = "/etc/emqx/certs/key.pem"
-  certfile = "/etc/emqx/certs/cert.pem"
+  ssl_options:
+  {
+    keyfile = "/etc/emqx/certs/key.pem"
+    certfile = "/etc/emqx/certs/cert.pem"
+    cacertfile = "/etc/emqx/certs/cacert.pem"
+  }
 }
 
 conn_congestion {
