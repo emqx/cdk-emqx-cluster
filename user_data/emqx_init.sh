@@ -208,8 +208,10 @@ sysmon.top {
 }
 
 node {
-  max_ports = 134217727
-  process_limit = 134217727
+  # must be at most half the maximum number of processes...
+  max_ports = 67108863
+  # this is currently ignored...
+  # process_limit = 134217727
 }
 
 api_key {
