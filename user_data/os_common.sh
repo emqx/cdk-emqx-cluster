@@ -22,7 +22,7 @@ apt install -y make wget gnupg2 git build-essential curl cmake debhelper tmux li
 wget -O - https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc | sudo apt-key add -
 echo "deb https://packages.erlang-solutions.com/ubuntu focal contrib" | tee /etc/apt/sources.list.d/els.list
 apt update
-apt install -y esl-erlang=1:24.2.1-1
+apt install -y esl-erlang=1:25.3-1
 
 ## Install node exporter
 case $(uname -m) in
