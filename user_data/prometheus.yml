@@ -40,3 +40,7 @@ scrape_configs:
   - job_name: "emqttb metrics"
     static_configs:
       - targets: [${EMQTTB_NODES}]
+
+  - job_name: "quicrun metrics"
+    static_configs:
+      - targets: [${QUICRUN_NODES}]

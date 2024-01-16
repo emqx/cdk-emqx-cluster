@@ -32,8 +32,8 @@ from constructs import Construct
 
 from cdk_emqx_cluster.cdk_chaos_test import cdk_chaos_test
 
-ubuntu_arm_ami = ec2.MachineImage.from_ssm_parameter('/aws/service/canonical/ubuntu/server/focal/stable/current/arm64/hvm/ebs-gp2/ami-id')
-ubuntu_x86_64_ami = ec2.MachineImage.from_ssm_parameter('/aws/service/canonical/ubuntu/server/focal/stable/current/amd64/hvm/ebs-gp2/ami-id')
+ubuntu_arm_ami = ec2.MachineImage.from_ssm_parameter('/aws/service/canonical/ubuntu/server/22.04/stable/current/arm64/hvm/ebs-gp2/ami-id')
+ubuntu_x86_64_ami = ec2.MachineImage.from_ssm_parameter('/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id')
 
 with open("./user_data/emqx_init.sh") as f:
     emqx_user_data = f.read()
@@ -404,6 +404,7 @@ class CdkEmqxClusterStack(cdk.Stack):
             prometheus_config = prometheus_config_tmpl.safe_substitute(
                 EMQX_NODES = ','.join([f'"{t}:9100"' for t in targets]),
                 EMQTTB_NODES = ','.join([f'"{t}:8017"' for t in self.loadgens]),
+                QUICRUN_NODES = ','.join([f'"{t}:9095"' for t in targets]),
             )
 
         sg.add_ingress_rule(ec2.Peer.any_ipv4(),
@@ -1140,7 +1141,7 @@ class CdkEmqxClusterStack(cdk.Stack):
         if enable_postgres and isinstance(enable_postgres, str):
             self.enable_postgres = strtobool(enable_postgres)
         else:
-            self.enable_postgres = True
+            self.enable_postgres = False
 
         if self.emqx_ins_type != self.emqx_core_ins_type:
             logging.warning("👍🏼  Will deploy %d %s EMQX, %d %s EMQX, %d %s Loadgens and "

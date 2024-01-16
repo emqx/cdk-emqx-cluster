@@ -19,10 +19,14 @@ apt update
 apt install -y make wget gnupg2 git build-essential curl cmake debhelper tmux libodbc1 awscli net-tools linux-tools-common linux-tools-aws
 
 #snap install cmake --classic
-wget -O - https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc | sudo apt-key add -
-echo "deb https://packages.erlang-solutions.com/ubuntu focal contrib" | tee /etc/apt/sources.list.d/els.list
+#wget -O - https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc | sudo apt-key add -
+#echo "deb https://packages.erlang-solutions.com/ubuntu focal contrib" | tee /etc/apt/sources.list.d/els.list
+#apt update
+#apt install -y esl-erlang=1:25.3-1
+#
+curl -fsSL https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/erlang.gpg
 apt update
-apt install -y esl-erlang=1:25.3-1
+apt install erlang
 
 ## Install node exporter
 case $(uname -m) in
